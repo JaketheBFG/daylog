@@ -412,6 +412,19 @@ const [entryDate, setEntryDate] = useState(todayStr);
   const today=new Date(entryDate+"T12:00:00").toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"});
   const monthYear=new Date().toLocaleDateString("en-US",{month:"long",year:"numeric"});
   const moodForDay=(date)=>{ const e=entries.find(en=>en.date===date); return e?.mood||null; };
+const STRESS_PATTERNS = (() => {
+  const counts = {};
+  entries.forEach(e => e.stressTags?.forEach(t => { counts[t] = (counts[t]||0)+1; }));
+  const total = entries.length || 1;
+  return Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,5).map(([label,count])=>({ label, pct: Math.round((count/total)*100) }));
+})();
+
+const JOY_PATTERNS = (() => {
+  const counts = {};
+  entries.forEach(e => e.joyTags?.forEach(t => { counts[t] = (counts[t]||0)+1; }));
+  const total = entries.length || 1;
+  return Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,5).map(([label,count])=>({ label, pct: Math.round((count/total)*100) }));
+})();
 
   // ── Auth actions ──
   const handleSignUp = async()=>{
@@ -475,6 +488,8 @@ const [entryDate, setEntryDate] = useState(todayStr);
     setLoading(true); setResult(null);
     try{
       const parsed=await analyzeEntry(text);
+      console.log("parsed:", JSON.stringify(parsed));
+
       setResult(parsed); setTodos(parsed.todos||[]);
       const entry={date:entryDate,mood:todayMood,text,todos:parsed.todos||[],stress_tags:parsed.stressTags||[],joy_tags:parsed.joyTags||[],insight:parsed.insight||"",user_id:session.user.id};
       const {data}=await supabase.from("entries").insert(entry).select().single();
