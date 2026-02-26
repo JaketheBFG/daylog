@@ -409,7 +409,7 @@ const [entryDate, setEntryDate] = useState(todayStr);
     loadAll();
   },[session]);
 
-  const today=new Date().toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"});
+  const today=new Date(entryDate+"T12:00:00").toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"});
   const monthYear=new Date().toLocaleDateString("en-US",{month:"long",year:"numeric"});
   const moodForDay=(date)=>{ const e=entries.find(en=>en.date===date); return e?.mood||null; };
 
@@ -598,7 +598,7 @@ const [entryDate, setEntryDate] = useState(todayStr);
       <div className="date-header">
        <div className="date-label">{preferredTime?`${preferredTime} reflection`:"end of day reflection"}</div>
 <div className="date-main">{today}</div>
-<input type="date" value={entryDate} onChange={e=>setEntryDate(e.target.value)} style={{marginTop:8,background:"var(--surface)",border:"1px solid var(--border)",borderRadius:8,padding:"6px 10px",color:"var(--text-muted)",fontFamily:"DM Sans, sans-serif",fontSize:13,outline:"none",cursor:"pointer"}}/>
+<input type="date" value={entryDate} onChange={e=>{ setEntryDate(e.target.value); setText(""); setResult(null); setTodos([]); setCheckedTodos({}); setTodayMood(null); }}/>
       </div>
       <div className="mood-row">
         <span className="mood-label">How are you feeling?</span>
