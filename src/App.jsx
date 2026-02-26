@@ -332,6 +332,7 @@ export default function App() {
   const [dbLoading,setDbLoading]=useState(true);
   const recognitionRef=useRef(null);
   const todayStr=new Date().toISOString().split("T")[0];
+const [entryDate, setEntryDate] = useState(todayStr);
 
   // Tasks
   const [allTasks,setAllTasks]=useState([]);
@@ -475,7 +476,7 @@ export default function App() {
     try{
       const parsed=await analyzeEntry(text);
       setResult(parsed); setTodos(parsed.todos||[]);
-      const entry={date:todayStr,mood:todayMood,text,todos:parsed.todos||[],stress_tags:parsed.stressTags||[],joy_tags:parsed.joyTags||[],insight:parsed.insight||"",user_id:session.user.id};
+      const entry={date:entryDate,mood:todayMood,text,todos:parsed.todos||[],stress_tags:parsed.stressTags||[],joy_tags:parsed.joyTags||[],insight:parsed.insight||"",user_id:session.user.id};
       const {data}=await supabase.from("entries").insert(entry).select().single();
       if(data) setEntries(p=>[{...data,stressTags:data.stress_tags||[],joyTags:data.joy_tags||[]},...p]);
       if(parsed.todos?.length){
@@ -595,8 +596,9 @@ export default function App() {
 
     {tab==="today"&&<>
       <div className="date-header">
-        <div className="date-label">{preferredTime?`${preferredTime} reflection`:"end of day reflection"}</div>
-        <div className="date-main">{today}</div>
+       <div className="date-label">{preferredTime?`${preferredTime} reflection`:"end of day reflection"}</div>
+<div className="date-main">{today}</div>
+<input type="date" value={entryDate} onChange={e=>setEntryDate(e.target.value)} style={{marginTop:8,background:"var(--surface)",border:"1px solid var(--border)",borderRadius:8,padding:"6px 10px",color:"var(--text-muted)",fontFamily:"DM Sans, sans-serif",fontSize:13,outline:"none",cursor:"pointer"}}/>
       </div>
       <div className="mood-row">
         <span className="mood-label">How are you feeling?</span>
