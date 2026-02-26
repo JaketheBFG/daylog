@@ -302,6 +302,7 @@ async function callClaude(prompt,maxTokens=1000){
 }
 async function analyzeEntry(text){ return JSON.parse(await callClaude(`Analyze this journal entry and respond ONLY with valid JSON:\n{"todos":["action item"],"stressTags":["2-4 word label"],"joyTags":["2-4 word label"],"insight":"One warm sentence."}\nEntry: "${text}"`)); }
 async function suggestGoals(entries){ return JSON.parse(await callClaude(`Suggest 3 personal growth goals based on these journal entries. Focus on happiness and wellbeing, NOT productivity.\n${entries.slice(0,5).map(e=>`${e.date}: ${e.text}`).join("\n")}\nRespond ONLY with valid JSON array:\n[{"title":"goal","why":"reason","icon":"emoji"}]`)); }
+async function generateMonthlySummary(entries, userName){ return JSON.parse(await callClaude(`Write a warm monthly summary for ${userName||"this person"} based on their journal entries this month.\nEntries:\n${entries.slice(0,20).map(e=>`${e.date}: ${e.text}`).join("\n\n")}\nRespond ONLY with valid JSON:\n{"summary":"2-3 sentence warm paragraph summarizing their month, patterns, and growth"}`,600)); }
 async function generateWeeklyDigest(entries,userName){ return JSON.parse(await callClaude(`Write a personal weekly reflection for ${userName||"this person"}.\nEntries:\n${entries.slice(0,7).map(e=>`${e.date} (mood ${e.mood||"?"}/5): ${e.text}`).join("\n\n")}\nRespond ONLY with valid JSON:\n{"headline":"evocative sentence","highlight":"best moment","pattern":"recurring observation","nudge":"one kind suggestion for next week"}`,800)); }
 
 export default function App() {
@@ -364,6 +365,8 @@ const [entryDate, setEntryDate] = useState(todayStr);
   // Digest
   const [digest,setDigest]=useState(null);
   const [generatingDigest,setGeneratingDigest]=useState(false);
+  const [monthlySummary,setMonthlySummary]=useState(null);
+const [generatingMonthlySummary,setGeneratingMonthlySummary]=useState(false);
 
   useEffect(()=>{ if(addingGroup&&newGroupInputRef.current) newGroupInputRef.current.focus(); },[addingGroup]);
 
@@ -484,6 +487,7 @@ const JOY_PATTERNS = (() => {
   const addManualGoal=async()=>{ if(!newGoalText.trim()||!session)return; const g={id:"g"+Date.now(),title:newGoalText.trim(),why:"",icon:"✦",source:"mine",user_id:session.user.id}; setGoals(p=>[...p,g]); await supabase.from("goals").insert(g); setNewGoalText(""); setAddingGoal(false); };
   const handleSuggestGoals=async()=>{ setSuggestingGoals(true); try{ const s=await suggestGoals(entries); setSuggestedGoals(s.map(g=>({...g,id:"sg"+Date.now()+Math.random()}))); }catch(e){} setSuggestingGoals(false); };
   const handleGenerateDigest=async()=>{ setGeneratingDigest(true); try{ const d=await generateWeeklyDigest(entries,userName); setDigest(d); }catch(e){} setGeneratingDigest(false); };
+  const handleGenerateMonthlySummary=async()=>{ setGeneratingMonthlySummary(true); try{ const d=await generateMonthlySummary(entries,userName); setMonthlySummary(d.summary); }catch(e){} setGeneratingMonthlySummary(false); };
 
   // ── Entry analysis ──
   const handleAnalyze=async()=>{
@@ -702,8 +706,15 @@ const JOY_PATTERNS = (() => {
         {suggestedGoals.map(sg=><div key={sg.id} className="goal-card suggested"><div className="goal-header"><span className="goal-icon">{sg.icon}</span><div className="goal-body"><div className="goal-title">{sg.title}</div>{sg.why&&<div className="goal-why">{sg.why}</div>}</div></div><div className="goal-footer"><span className="goal-badge suggested-badge">✦ Suggested for you</span><div className="goal-actions"><button className="goal-btn" onClick={()=>dismissSuggested(sg)}>Dismiss</button><button className="goal-btn accept" onClick={()=>acceptSuggested(sg)}>Add this →</button></div></div></div>)}
         <button className="goals-suggest-btn" onClick={handleSuggestGoals} disabled={suggestingGoals||entries.length===0}>{suggestingGoals?<><div className="loading-dots" style={{padding:0}}><span/><span/><span/></div> Reading your entries...</>:<><span>✦</span> Suggest goals based on my entries</>}</button>
       </div>
-      <div className="summary-card"><div className="summary-month">Monthly summary · {monthYear}</div><div className="summary-text">Your entries are being saved and patterns will build over time. Keep logging and this section will fill in with real insights from your data.</div></div>
-    </>}
+      <div className="summary-card"><div className="summary-card">
+  <div className="summary-month">Monthly summary · {monthYear}</div>
+  {monthlySummary
+    ? <div className="summary-text">{monthlySummary}</div>
+    : <><div className="summary-text" style={{marginBottom:12}}>Generate a personal summary of your month based on your entries.</div>
+       <button className="digest-gen-btn" onClick={handleGenerateMonthlySummary} disabled={generatingMonthlySummary||entries.length===0}>
+         {generatingMonthlySummary?<><div className="loading-dots" style={{padding:0}}><span/><span/><span/></div> Writing your summary...</>:<><span>✦</span> Generate monthly summary</>}
+       </button></>}
+</div>
 
     {tab==="history"&&<>
       <div className="date-header"><div className="date-label">past entries</div><div className="date-main">Your journal</div></div>
