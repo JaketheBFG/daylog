@@ -703,6 +703,7 @@ export default function App() {
         <p style={{marginBottom:12,fontSize:14,lineHeight:1.65}}>{entry.text.slice(0,180)}{entry.text.length>180?"...":""}</p>
         {(entry.stressTags?.length>0||entry.joyTags?.length>0)&&<div className="tags-row" style={{marginBottom:8}}>{entry.stressTags?.map((t,i)=><span key={i} className="tag tag-stress">↑ {t}</span>)}{entry.joyTags?.map((t,i)=><span key={i} className="tag tag-joy">✦ {t}</span>)}</div>}
         {entry.todos?.length>0&&<div style={{fontSize:12,color:"var(--text-muted)"}}>{entry.todos.length} action item{entry.todos.length>1?"s":""}</div>}
+        <div style={{display:"flex",justifyContent:"flex-end",marginTop:10}}><button onClick={async()=>{ if(window.confirm("Delete this entry?")){ await supabase.from("entries").delete().eq("id",entry.id); setEntries(p=>p.filter(e=>e.id!==entry.id)); }}} style={{background:"none",border:"1px solid var(--border)",borderRadius:8,padding:"4px 10px",fontSize:11,color:"var(--text-dim)",cursor:"pointer",fontFamily:"DM Sans,sans-serif"}}>Delete</button></div>
       </div>; })}
     </>}
 
