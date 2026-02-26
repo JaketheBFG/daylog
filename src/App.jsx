@@ -706,7 +706,7 @@ const JOY_PATTERNS = (() => {
         {suggestedGoals.map(sg=><div key={sg.id} className="goal-card suggested"><div className="goal-header"><span className="goal-icon">{sg.icon}</span><div className="goal-body"><div className="goal-title">{sg.title}</div>{sg.why&&<div className="goal-why">{sg.why}</div>}</div></div><div className="goal-footer"><span className="goal-badge suggested-badge">✦ Suggested for you</span><div className="goal-actions"><button className="goal-btn" onClick={()=>dismissSuggested(sg)}>Dismiss</button><button className="goal-btn accept" onClick={()=>acceptSuggested(sg)}>Add this →</button></div></div></div>)}
         <button className="goals-suggest-btn" onClick={handleSuggestGoals} disabled={suggestingGoals||entries.length===0}>{suggestingGoals?<><div className="loading-dots" style={{padding:0}}><span/><span/><span/></div> Reading your entries...</>:<><span>✦</span> Suggest goals based on my entries</>}</button>
       </div>
-      <div className="summary-card"><div className="summary-card">
+    <div className="summary-card">
   <div className="summary-month">Monthly summary · {monthYear}</div>
   {monthlySummary
     ? <div className="summary-text">{monthlySummary}</div>
