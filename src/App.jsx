@@ -413,6 +413,8 @@ export default function App() {
   const today=new Date().toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"});
   const monthYear=new Date().toLocaleDateString("en-US",{month:"long",year:"numeric"});
   const moodForDay=(date)=>{ const e=entries.find(en=>en.date===date); return e?.mood||null; };
+  const STRESS_PATTERNS = (() => { const counts = {}; entries.forEach(e => e.stressTags?.forEach(t => { counts[t] = (counts[t]||0)+1; })); const total = entries.length || 1; return Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,5).map(([label,count])=>({ label, pct: Math.round((count/total)*100) })); })();
+const JOY_PATTERNS = (() => { const counts = {}; entries.forEach(e => e.joyTags?.forEach(t => { counts[t] = (counts[t]||0)+1; })); const total = entries.length || 1; return Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,5).map(([label,count])=>({ label, pct: Math.round((count/total)*100) })); })();
 
   // ── Auth actions ──
   const handleSignUp = async()=>{
