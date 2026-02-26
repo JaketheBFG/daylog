@@ -295,10 +295,7 @@ function shortDate(d){ return new Date(d+"T12:00:00").toLocaleDateString("en-US"
 async function callClaude(prompt,maxTokens=1000){
   const res=await fetch("/api/reflect",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:maxTokens,messages:[{role:"user",content:prompt}]})});
   const data=await res.json();
-  console.log("claude raw:", JSON.stringify(data));
-  const text = (data.content?.find(b=>b.type==="text")?.text||"{}").replace(/```json|```/g,"").trim();
-  console.log("claude text:", text);
-  return text;
+  return (data.content?.find(b=>b.type==="text")?.text||"{}").replace(/```json|```/g,"").trim();
 }
 async function analyzeEntry(text){ return JSON.parse(await callClaude(`Analyze this journal entry and respond ONLY with valid JSON:\n{"todos":["action item"],"stressTags":["2-4 word label"],"joyTags":["2-4 word label"],"insight":"One warm sentence."}\nEntry: "${text}"`)); }
 async function suggestGoals(entries){ return JSON.parse(await callClaude(`Suggest 3 personal growth goals based on these journal entries. Focus on happiness and wellbeing, NOT productivity.\n${entries.slice(0,5).map(e=>`${e.date}: ${e.text}`).join("\n")}\nRespond ONLY with valid JSON array:\n[{"title":"goal","why":"reason","icon":"emoji"}]`)); }
@@ -336,7 +333,6 @@ export default function App() {
   const [dbLoading,setDbLoading]=useState(true);
   const recognitionRef=useRef(null);
   const todayStr=new Date().toISOString().split("T")[0];
-const [entryDate, setEntryDate] = useState(todayStr);
 
   // Tasks
   const [allTasks,setAllTasks]=useState([]);
@@ -366,7 +362,7 @@ const [entryDate, setEntryDate] = useState(todayStr);
   const [digest,setDigest]=useState(null);
   const [generatingDigest,setGeneratingDigest]=useState(false);
   const [monthlySummary,setMonthlySummary]=useState(null);
-const [generatingMonthlySummary,setGeneratingMonthlySummary]=useState(false);
+  const [generatingMonthlySummary,setGeneratingMonthlySummary]=useState(false);
 
   useEffect(()=>{ if(addingGroup&&newGroupInputRef.current) newGroupInputRef.current.focus(); },[addingGroup]);
 
@@ -415,22 +411,9 @@ const [generatingMonthlySummary,setGeneratingMonthlySummary]=useState(false);
     loadAll();
   },[session]);
 
-  const today=new Date(entryDate+"T12:00:00").toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"});
+  const today=new Date().toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"});
   const monthYear=new Date().toLocaleDateString("en-US",{month:"long",year:"numeric"});
   const moodForDay=(date)=>{ const e=entries.find(en=>en.date===date); return e?.mood||null; };
-const STRESS_PATTERNS = (() => {
-  const counts = {};
-  entries.forEach(e => e.stressTags?.forEach(t => { counts[t] = (counts[t]||0)+1; }));
-  const total = entries.length || 1;
-  return Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,5).map(([label,count])=>({ label, pct: Math.round((count/total)*100) }));
-})();
-
-const JOY_PATTERNS = (() => {
-  const counts = {};
-  entries.forEach(e => e.joyTags?.forEach(t => { counts[t] = (counts[t]||0)+1; }));
-  const total = entries.length || 1;
-  return Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,5).map(([label,count])=>({ label, pct: Math.round((count/total)*100) }));
-})();
 
   // ── Auth actions ──
   const handleSignUp = async()=>{
@@ -486,18 +469,17 @@ const JOY_PATTERNS = (() => {
   const deleteGoal=async(gid)=>{ setGoals(p=>p.filter(g=>g.id!==gid)); await supabase.from("goals").delete().eq("id",gid); };
   const addManualGoal=async()=>{ if(!newGoalText.trim()||!session)return; const g={id:"g"+Date.now(),title:newGoalText.trim(),why:"",icon:"✦",source:"mine",user_id:session.user.id}; setGoals(p=>[...p,g]); await supabase.from("goals").insert(g); setNewGoalText(""); setAddingGoal(false); };
   const handleSuggestGoals=async()=>{ setSuggestingGoals(true); try{ const s=await suggestGoals(entries); setSuggestedGoals(s.map(g=>({...g,id:"sg"+Date.now()+Math.random()}))); }catch(e){} setSuggestingGoals(false); };
-  const handleGenerateDigest=async()=>{ setGeneratingDigest(true); try{ const d=await generateWeeklyDigest(entries,userName); setDigest(d); }catch(e){} setGeneratingDigest(false); };
   const handleGenerateMonthlySummary=async()=>{ setGeneratingMonthlySummary(true); try{ const d=await generateMonthlySummary(entries,userName); setMonthlySummary(d.summary); }catch(e){} setGeneratingMonthlySummary(false); };
+  const handleGenerateDigest=async()=>{ setGeneratingDigest(true); try{ const d=await generateWeeklyDigest(entries,userName); setDigest(d); }catch(e){} setGeneratingDigest(false); };
 
   // ── Entry analysis ──
   const handleAnalyze=async()=>{
     if(!text.trim()||!session)return;
     setLoading(true); setResult(null);
     try{
-      const parsed=await analyzeEntry(text);console.log("parsed:", JSON.stringify(parsed));
-
+      const parsed=await analyzeEntry(text);
       setResult(parsed); setTodos(parsed.todos||[]);
-      const entry={date:entryDate,mood:todayMood,text,todos:parsed.todos||[],stress_tags:parsed.stressTags||[],joy_tags:parsed.joyTags||[],insight:parsed.insight||"",user_id:session.user.id};
+      const entry={date:todayStr,mood:todayMood,text,todos:parsed.todos||[],stress_tags:parsed.stressTags||[],joy_tags:parsed.joyTags||[],insight:parsed.insight||"",user_id:session.user.id};
       const {data}=await supabase.from("entries").insert(entry).select().single();
       if(data) setEntries(p=>[{...data,stressTags:data.stress_tags||[],joyTags:data.joy_tags||[]},...p]);
       if(parsed.todos?.length){
@@ -505,7 +487,8 @@ const JOY_PATTERNS = (() => {
         const {data:td}=await supabase.from("tasks").insert(newTasks).select();
         if(td) setAllTasks(p=>[...p,...td.map(t=>({...t,groupId:t.group_id,sourceDate:t.source_date,addedDate:t.added_date}))]);
       }
-}catch(e){ console.log("error:", e.message); setResult({error:true}); }    setLoading(false);
+    }catch(e){ setResult({error:true}); }
+    setLoading(false);
   };
 
   // ── Voice ──
@@ -616,9 +599,8 @@ const JOY_PATTERNS = (() => {
 
     {tab==="today"&&<>
       <div className="date-header">
-       <div className="date-label">{preferredTime?`${preferredTime} reflection`:"end of day reflection"}</div>
-<div className="date-main">{today}</div>
-<input type="date" value={entryDate} onChange={e=>{ setEntryDate(e.target.value); setText(""); setResult(null); setTodos([]); setCheckedTodos({}); setTodayMood(null); }}/>
+        <div className="date-label">{preferredTime?`${preferredTime} reflection`:"end of day reflection"}</div>
+        <div className="date-main">{today}</div>
       </div>
       <div className="mood-row">
         <span className="mood-label">How are you feeling?</span>
@@ -706,9 +688,8 @@ const JOY_PATTERNS = (() => {
         {suggestedGoals.map(sg=><div key={sg.id} className="goal-card suggested"><div className="goal-header"><span className="goal-icon">{sg.icon}</span><div className="goal-body"><div className="goal-title">{sg.title}</div>{sg.why&&<div className="goal-why">{sg.why}</div>}</div></div><div className="goal-footer"><span className="goal-badge suggested-badge">✦ Suggested for you</span><div className="goal-actions"><button className="goal-btn" onClick={()=>dismissSuggested(sg)}>Dismiss</button><button className="goal-btn accept" onClick={()=>acceptSuggested(sg)}>Add this →</button></div></div></div>)}
         <button className="goals-suggest-btn" onClick={handleSuggestGoals} disabled={suggestingGoals||entries.length===0}>{suggestingGoals?<><div className="loading-dots" style={{padding:0}}><span/><span/><span/></div> Reading your entries...</>:<><span>✦</span> Suggest goals based on my entries</>}</button>
       </div>
-    <div className="summary-card">
-  <div className="summary-card"><div className="summary-month">Monthly summary · {monthYear}</div>{monthlySummary?<div className="summary-text">{monthlySummary}</div>:<><div className="summary-text" style={{marginBottom:12}}>Generate a personal summary of your month based on your entries.</div><button className="digest-gen-btn" onClick={handleGenerateMonthlySummary} disabled={generatingMonthlySummary||entries.length===0}>{generatingMonthlySummary?<><div className="loading-dots" style={{padding:0}}><span/><span/><span/></div>Writing your summary...</>:<><span>✦</span>Generate monthly summary</>}</button></>}</div>
-
+      <div className="summary-card"><div className="summary-month">Monthly summary · {monthYear}</div>{monthlySummary?<div className="summary-text">{monthlySummary}</div>:<><div className="summary-text" style={{marginBottom:12}}>Generate a personal summary of your month based on your real entries.</div><button className="digest-gen-btn" onClick={handleGenerateMonthlySummary} disabled={generatingMonthlySummary||entries.length===0}>{generatingMonthlySummary?<><div className="loading-dots" style={{padding:0}}><span/><span/><span/></div> Writing your summary...</>:<><span>✦</span> Generate monthly summary</>}</button></>}</div>
+    </>}
 
     {tab==="history"&&<>
       <div className="date-header"><div className="date-label">past entries</div><div className="date-main">Your journal</div></div>
