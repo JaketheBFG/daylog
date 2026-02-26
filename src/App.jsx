@@ -707,14 +707,8 @@ const JOY_PATTERNS = (() => {
         <button className="goals-suggest-btn" onClick={handleSuggestGoals} disabled={suggestingGoals||entries.length===0}>{suggestingGoals?<><div className="loading-dots" style={{padding:0}}><span/><span/><span/></div> Reading your entries...</>:<><span>✦</span> Suggest goals based on my entries</>}</button>
       </div>
     <div className="summary-card">
-  <div className="summary-month">Monthly summary · {monthYear}</div>
-  {monthlySummary
-    ? <div className="summary-text">{monthlySummary}</div>
-    : <><div className="summary-text" style={{marginBottom:12}}>Generate a personal summary of your month based on your entries.</div>
-       <button className="digest-gen-btn" onClick={handleGenerateMonthlySummary} disabled={generatingMonthlySummary||entries.length===0}>
-         {generatingMonthlySummary?<><div className="loading-dots" style={{padding:0}}><span/><span/><span/></div> Writing your summary...</>:<><span>✦</span> Generate monthly summary</>}
-       </button></>}
-</div>
+  <div className="summary-card"><div className="summary-month">Monthly summary · {monthYear}</div>{monthlySummary?<div className="summary-text">{monthlySummary}</div>:<><div className="summary-text" style={{marginBottom:12}}>Generate a personal summary of your month based on your entries.</div><button className="digest-gen-btn" onClick={handleGenerateMonthlySummary} disabled={generatingMonthlySummary||entries.length===0}>{generatingMonthlySummary?<><div className="loading-dots" style={{padding:0}}><span/><span/><span/></div>Writing your summary...</>:<><span>✦</span>Generate monthly summary</>}</button></>}</div>
+
 
     {tab==="history"&&<>
       <div className="date-header"><div className="date-label">past entries</div><div className="date-main">Your journal</div></div>
