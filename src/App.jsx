@@ -487,8 +487,7 @@ const JOY_PATTERNS = (() => {
     if(!text.trim()||!session)return;
     setLoading(true); setResult(null);
     try{
-      const parsed=await analyzeEntry(text);
-      console.log("parsed:", JSON.stringify(parsed));
+      const parsed=await analyzeEntry(text);console.log("parsed:", JSON.stringify(parsed));
 
       setResult(parsed); setTodos(parsed.todos||[]);
       const entry={date:entryDate,mood:todayMood,text,todos:parsed.todos||[],stress_tags:parsed.stressTags||[],joy_tags:parsed.joyTags||[],insight:parsed.insight||"",user_id:session.user.id};
@@ -499,8 +498,7 @@ const JOY_PATTERNS = (() => {
         const {data:td}=await supabase.from("tasks").insert(newTasks).select();
         if(td) setAllTasks(p=>[...p,...td.map(t=>({...t,groupId:t.group_id,sourceDate:t.source_date,addedDate:t.added_date}))]);
       }
-    }catch(e){ setResult({error:true}); }
-    setLoading(false);
+}catch(e){ console.log("error:", e.message); setResult({error:true}); }    setLoading(false);
   };
 
   // ── Voice ──
