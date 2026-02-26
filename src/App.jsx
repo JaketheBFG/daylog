@@ -283,8 +283,7 @@ const OB_TIMES = [
   {emoji:"🌆",label:"Evening", sub:"Wind down and reflect",        value:"evening"},
   {emoji:"🌙",label:"Night",   sub:"Before sleep ritual",          value:"night"},
 ];
-const STRESS_PATTERNS = [{label:"Work meetings",pct:72},{label:"Commute",pct:58},{label:"Deadlines",pct:50},{label:"Social friction",pct:30}];
-const JOY_PATTERNS    = [{label:"Exercise",pct:80},{label:"Deep work",pct:75},{label:"Social time",pct:68},{label:"Cooking/food",pct:55}];
+
 const DEFAULT_GROUPS  = [{id:"work",name:"Work",color:"#7a9ec4"},{id:"errands",name:"Errands",color:"#c4a45a"},{id:"social",name:"Friends & Social",color:"#a47ac4"},{id:"health",name:"Health",color:"#6a9e78"}];
 
 function last28Days(){ return Array.from({length:28},(_,i)=>{ const d=new Date(); d.setDate(d.getDate()-(27-i)); return d.toISOString().split("T")[0]; }); }
