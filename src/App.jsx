@@ -295,7 +295,10 @@ function shortDate(d){ return new Date(d+"T12:00:00").toLocaleDateString("en-US"
 async function callClaude(prompt,maxTokens=1000){
   const res=await fetch("/api/reflect",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:maxTokens,messages:[{role:"user",content:prompt}]})});
   const data=await res.json();
-  return (data.content?.find(b=>b.type==="text")?.text||"{}").replace(/```json|```/g,"").trim();
+  console.log("claude raw:", JSON.stringify(data));
+  const text = (data.content?.find(b=>b.type==="text")?.text||"{}").replace(/```json|```/g,"").trim();
+  console.log("claude text:", text);
+  return text;
 }
 async function analyzeEntry(text){ return JSON.parse(await callClaude(`Analyze this journal entry and respond ONLY with valid JSON:\n{"todos":["action item"],"stressTags":["2-4 word label"],"joyTags":["2-4 word label"],"insight":"One warm sentence."}\nEntry: "${text}"`)); }
 async function suggestGoals(entries){ return JSON.parse(await callClaude(`Suggest 3 personal growth goals based on these journal entries. Focus on happiness and wellbeing, NOT productivity.\n${entries.slice(0,5).map(e=>`${e.date}: ${e.text}`).join("\n")}\nRespond ONLY with valid JSON array:\n[{"title":"goal","why":"reason","icon":"emoji"}]`)); }
