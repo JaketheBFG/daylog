@@ -498,8 +498,7 @@ const JOY_PATTERNS = (() => { const counts = {}; entries.forEach(e => e.joyTags?
     if(recording){ recognitionRef.current?.stop(); setRecording(false); return; }
     const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
     const r=new SR(); r.continuous=true; r.interimResults=true; r.lang="en-US";
-    r.onresult=(e)=>{ let f=""; for(let i=0;i<e.results.length;i++) if(e.results[i].isFinal) f+=e.results[i][0].transcript+" "; if(f) setText(p=>p+f); };
-    r.onend=()=>setRecording(false); r.start(); recognitionRef.current=r; setRecording(true);
+r.onresult=(e)=>{ let f=""; for(let i=e.resultIndex;i<e.results.length;i++) if(e.results[i].isFinal) f+=e.results[i][0].transcript+" "; if(f) setText(p=>p+f); };    r.onend=()=>setRecording(false); r.start(); recognitionRef.current=r; setRecording(true);
   };
 
   const weekDates=lastNDays(7);
