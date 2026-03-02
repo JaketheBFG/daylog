@@ -98,8 +98,7 @@ const STYLES = `
   /* ── MOOD ── */
   .mood-row { display:flex; align-items:center; gap:8px; margin-bottom:20px; flex-wrap:wrap; }
   .mood-label { font-size:12px; color:var(--text-muted); margin-right:4px; }
-  .mood-btn { width:42px; height:42px; border-radius:10px; border:1.5px solid var(--border); background:var(--surface); cursor:pointer; font-size:19px; display:flex; align-items:center; justify-content:center; transition:all 0.15s; }
-  .mood-btn:hover { transform:scale(1.15); border-color:var(--text-muted); }
+.mood-btn { width:38px; height:38px; border-radius:10px; border:1.5px solid var(--border); background:var(--surface); cursor:pointer; font-size:17px; display:flex; align-items:center; justify-content:center; transition:all 0.15s; }  .mood-btn:hover { transform:scale(1.15); border-color:var(--text-muted); }
   .mood-btn.selected { transform:scale(1.18); border-color:var(--amber); background:var(--amber-dim); }
   .mood-score-display { font-size:11px; color:var(--amber-soft); font-style:italic; margin-left:4px; }
 
