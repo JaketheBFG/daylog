@@ -98,7 +98,8 @@ const STYLES = `
   /* ── MOOD ── */
   .mood-row { display:flex; align-items:center; gap:8px; margin-bottom:20px; flex-wrap:wrap; }
   .mood-label { font-size:12px; color:var(--text-muted); margin-right:4px; }
-.mood-btn { width:38px; height:38px; border-radius:10px; border:1.5px solid var(--border); background:var(--surface); cursor:pointer; font-size:17px; display:flex; align-items:center; justify-content:center; transition:all 0.15s; }  .mood-btn:hover { transform:scale(1.15); border-color:var(--text-muted); }
+  .mood-btn { width:38px; height:38px; border-radius:10px; border:1.5px solid var(--border); background:var(--surface); cursor:pointer; font-size:17px; display:flex; align-items:center; justify-content:center; transition:all 0.15s; }
+  .mood-btn:hover { transform:scale(1.15); border-color:var(--text-muted); }
   .mood-btn.selected { transform:scale(1.18); border-color:var(--amber); background:var(--amber-dim); }
   .mood-score-display { font-size:11px; color:var(--amber-soft); font-style:italic; margin-left:4px; }
 
@@ -275,6 +276,12 @@ const STYLES = `
   .goals-suggest-btn { display:flex; align-items:center; gap:8px; width:100%; background:var(--amber-dim); border:1px dashed rgba(200,136,42,0.4); border-radius:12px; padding:14px 18px; cursor:pointer; transition:all 0.2s; color:var(--amber-soft); font-family:'DM Sans',sans-serif; font-size:13px; margin-bottom:14px; }
   .goals-suggest-btn:hover { background:rgba(58,42,16,0.8); }
   .goals-suggest-btn:disabled { opacity:0.5; cursor:not-allowed; }
+
+  /* ── HABITS & GOALS TAB SECTIONS ── */
+  .hg-section { margin-bottom:36px; }
+  .hg-section-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:20px; padding-bottom:12px; border-bottom:1px solid var(--border); }
+  .hg-section-title { font-family:'Playfair Display',serif; font-size:22px; color:var(--cream); }
+  .hg-section-sub { font-size:12px; color:var(--text-muted); font-style:italic; margin-top:3px; }
 `;
 
 const MOODS = [
@@ -320,14 +327,13 @@ export default function App() {
   // Auth
   const [session, setSession] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
-  const [authTab, setAuthTab] = useState("login");
   const [authEmail, setAuthEmail] = useState("");
   const [authPassword, setAuthPassword] = useState("");
   const [authName, setAuthName] = useState("");
   const [authError, setAuthError] = useState("");
   const [authSuccess, setAuthSuccess] = useState("");
   const [authSubmitting, setAuthSubmitting] = useState(false);
-  const [authMode, setAuthMode] = useState("login"); // login | signup | forgot | reset
+  const [authMode, setAuthMode] = useState("login");
   const [newPassword, setNewPassword] = useState("");
 
   // Onboarding
@@ -378,7 +384,7 @@ export default function App() {
   const [newGoalText,setNewGoalText]=useState("");
   const [addingGoal,setAddingGoal]=useState(false);
 
-  // Digest
+  // Digest / Summary
   const [digest,setDigest]=useState(null);
   const [generatingDigest,setGeneratingDigest]=useState(false);
   const [monthlySummary,setMonthlySummary]=useState(null);
@@ -398,7 +404,6 @@ export default function App() {
         if(meta?.ob_done) setObDone(true);
       }
     });
-    // Detect password reset flow from URL hash
     const hash = window.location.hash;
     if(hash.includes("type=recovery")) setAuthMode("reset");
     const {data:{subscription}}=supabase.auth.onAuthStateChange((event,session)=>{
@@ -414,7 +419,7 @@ export default function App() {
     return ()=>subscription.unsubscribe();
   },[]);
 
-  // ── Load data when session exists ──
+  // ── Load data ──
   useEffect(()=>{
     if(!session) return;
     async function loadAll(){
@@ -631,6 +636,44 @@ export default function App() {
   // ════════════════════════════════════════════════════════════════════════════
   // MAIN APP
   // ════════════════════════════════════════════════════════════════════════════
+
+  // ── Reusable Habits section ──
+  const HabitsSection = () => (
+    <div className="hg-section">
+      <div className="hg-section-header">
+        <div>
+          <div className="hg-section-title">Habits</div>
+          <div className="hg-section-sub">28-day view — tap any square to log it</div>
+        </div>
+        <button className="btn btn-ghost" style={{padding:"6px 14px",fontSize:12}} onClick={()=>setAddingHabit(v=>!v)}>{addingHabit?"Cancel":"+ Add habit"}</button>
+      </div>
+      <div className="habit-grid-wrap">
+        <div className="habit-day-labels"><div/>{last28Days().map((d,i)=><div key={d} className="habit-day-label">{i===0||new Date(d+"T12:00:00").getDate()===1?new Date(d+"T12:00:00").toLocaleDateString("en-US",{month:"short",day:"numeric"}).replace(" ",""):new Date(d+"T12:00:00").getDate()%7===1?new Date(d+"T12:00:00").getDate():""}</div>)}</div>
+        {habits.map(h=>{ const streak=habitStreak(h); return <div key={h.id} className="habit-row-wrap"><div style={{flex:1}}><div className="habit-row"><div className="habit-name-cell" title={h.name}>{h.name}</div>{last28Days().map(d=><div key={d} className={`habit-dot ${h.checked[d]?"checked":""}`} style={h.checked[d]?{background:h.color}:{}} onClick={()=>toggleHabit(h.id,d)} title={d}/>)}</div>{streak>1&&<div style={{paddingLeft:118,marginTop:-2,marginBottom:4}}><span className="habit-streak-label">🔥 {streak}-day streak</span></div>}</div><button className="habit-del" onClick={()=>deleteHabit(h.id)}>×</button></div>; })}
+        {habits.length===0&&<div className="empty-state" style={{padding:"20px 0"}}>No habits yet — add one below.</div>}
+      </div>
+      {addingHabit&&<><div className="add-habit-row"><input autoFocus className="add-habit-input" placeholder="Habit name (e.g. Morning walk, Read 20 min)" value={newHabitName} onChange={e=>setNewHabitName(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")addHabit();if(e.key==="Escape")setAddingHabit(false);}}/><button className="btn btn-primary" onClick={addHabit} disabled={!newHabitName.trim()}>Add</button></div><div className="habit-color-pick"><span style={{fontSize:11,color:"var(--text-dim)"}}>Colour:</span>{HABIT_COLORS.map(c=><div key={c} className={`habit-color-swatch ${newHabitColor===c?"selected":""}`} style={{background:c}} onClick={()=>setNewHabitColor(c)}/>)}</div></>}
+    </div>
+  );
+
+  // ── Reusable Goals section ──
+  const GoalsSection = () => (
+    <div className="hg-section">
+      <div className="hg-section-header">
+        <div>
+          <div className="hg-section-title">Goals</div>
+          <div className="hg-section-sub">Directions, not tasks</div>
+        </div>
+        <button className="btn btn-ghost" style={{padding:"6px 14px",fontSize:12}} onClick={()=>setAddingGoal(v=>!v)}>{addingGoal?"Cancel":"+ Add goal"}</button>
+      </div>
+      {addingGoal&&<div className="add-goal-row"><input autoFocus className="add-goal-input" placeholder="What do you want to work towards?" value={newGoalText} onChange={e=>setNewGoalText(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")addManualGoal();if(e.key==="Escape")setAddingGoal(false);}}/><button className="btn btn-primary" onClick={addManualGoal} disabled={!newGoalText.trim()}>Add</button></div>}
+      {goals.map(g=><div key={g.id} className="goal-card"><div className="goal-header"><span className="goal-icon">{g.icon}</span><div className="goal-body"><div className="goal-title">{g.title}</div>{g.why&&<div className="goal-why">{g.why}</div>}</div></div><div className="goal-footer"><span className="goal-badge mine-badge">Your goal</span><div className="goal-actions"><button className="goal-btn delete" onClick={()=>deleteGoal(g.id)}>Remove</button></div></div></div>)}
+      {goals.length===0&&suggestedGoals.length===0&&<div className="empty-state" style={{padding:"20px 0"}}>No goals yet. Add one or let the app suggest some.</div>}
+      {suggestedGoals.map(sg=><div key={sg.id} className="goal-card suggested"><div className="goal-header"><span className="goal-icon">{sg.icon}</span><div className="goal-body"><div className="goal-title">{sg.title}</div>{sg.why&&<div className="goal-why">{sg.why}</div>}</div></div><div className="goal-footer"><span className="goal-badge suggested-badge">✦ Suggested for you</span><div className="goal-actions"><button className="goal-btn" onClick={()=>dismissSuggested(sg)}>Dismiss</button><button className="goal-btn accept" onClick={()=>acceptSuggested(sg)}>Add this →</button></div></div></div>)}
+      <button className="goals-suggest-btn" onClick={handleSuggestGoals} disabled={suggestingGoals||entries.length===0}>{suggestingGoals?<><div className="loading-dots" style={{padding:0}}><span/><span/><span/></div> Reading your entries...</>:<><span>✦</span> Suggest goals based on my entries</>}</button>
+    </div>
+  );
+
   return(<><style>{STYLES}</style><div className="grain"/><div className="glow"/>
   <div className="app">
     <nav className="nav">
@@ -638,10 +681,15 @@ export default function App() {
       <div className="nav-right">
         {userName&&<div className="nav-greeting">Hey, {userName.split(" ")[0]}</div>}
         <div className="nav-tabs">
-          {["today","tasks","patterns","history"].map(t=>(
-            <button key={t} className={`nav-tab ${tab===t?"active":""}`} onClick={()=>setTab(t)}>
-              {t==="tasks"?`Tasks${allTasks.filter(x=>!x.done).length?` (${allTasks.filter(x=>!x.done).length})`:""}`
-                :t.charAt(0).toUpperCase()+t.slice(1)}
+          {[
+            {id:"today",  label:"Today"},
+            {id:"tasks",  label:`Tasks${allTasks.filter(x=>!x.done).length?` (${allTasks.filter(x=>!x.done).length})`:""}`},
+            {id:"habits", label:"Habits & Goals"},
+            {id:"patterns",label:"Patterns"},
+            {id:"history",label:"History"},
+          ].map(t=>(
+            <button key={t.id} className={`nav-tab ${tab===t.id?"active":""}`} onClick={()=>setTab(t.id)}>
+              {t.label}
             </button>
           ))}
         </div>
@@ -649,6 +697,7 @@ export default function App() {
       </div>
     </nav>
 
+    {/* ── TODAY ── */}
     {tab==="today"&&<>
       <div className="date-header">
         <div className="date-label">{preferredTime?`${preferredTime} reflection`:"end of day reflection"}</div>
@@ -689,6 +738,7 @@ export default function App() {
       {result?.error&&<div className="entry-card"><div className="entry-prompt">Couldn't parse that — try again or check your connection.</div></div>}
     </>}
 
+    {/* ── TASKS ── */}
     {tab==="tasks"&&<>
       <div className="date-header"><div className="date-label">running list</div><div className="date-main">Tasks</div></div>
       <div className="add-task-row">
@@ -714,6 +764,18 @@ export default function App() {
       })()}
     </>}
 
+    {/* ── HABITS & GOALS ── */}
+    {tab==="habits"&&<>
+      <div className="date-header">
+        <div className="date-label">build your life</div>
+        <div className="date-main">Habits & Goals</div>
+      </div>
+      <HabitsSection />
+      <div style={{height:1,background:"var(--border)",margin:"8px 0 32px"}}/>
+      <GoalsSection />
+    </>}
+
+    {/* ── PATTERNS ── */}
     {tab==="patterns"&&<>
       <div className="date-header"><div className="date-label">your patterns</div><div className="date-main">{monthYear}</div></div>
       <div className="section-label" style={{marginBottom:14}}>This week</div>
@@ -729,30 +791,12 @@ export default function App() {
         <button className="digest-gen-btn" onClick={handleGenerateDigest} disabled={generatingDigest||entries.length===0}>{generatingDigest?<><div className="loading-dots" style={{padding:0}}><span/><span/><span/></div> Writing your digest...</>:<><span>✦</span> Generate this week's digest</>}</button>
         {digest&&<div className="digest-card"><div className="digest-week">Week of {shortDate(weekDates[0])} — {shortDate(weekDates[6])}</div>{digest.headline&&<div className="digest-headline">"{digest.headline}"</div>}{digest.highlight&&<div className="digest-section"><div className="digest-section-label">Highlight</div><div className="digest-body">{digest.highlight}</div></div>}{digest.pattern&&<div className="digest-section"><div className="digest-section-label">Pattern noticed</div><div className="digest-body">{digest.pattern}</div></div>}{digest.nudge&&<div className="digest-section"><div className="digest-section-label">For next week</div><div className="digest-nudge">{digest.nudge}</div></div>}</div>}
       </div>
-      <div className="pattern-card">
-        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:4}}><h3>Habit tracker</h3><button className="btn btn-ghost" style={{padding:"5px 12px",fontSize:12}} onClick={()=>setAddingHabit(v=>!v)}>{addingHabit?"Cancel":"+ Add habit"}</button></div>
-        <p style={{marginBottom:16}}>28-day view — tap any square to log it.</p>
-        <div className="habit-grid-wrap">
-          <div className="habit-day-labels"><div/>{last28Days().map((d,i)=><div key={d} className="habit-day-label">{i===0||new Date(d+"T12:00:00").getDate()===1?new Date(d+"T12:00:00").toLocaleDateString("en-US",{month:"short",day:"numeric"}).replace(" ",""):new Date(d+"T12:00:00").getDate()%7===1?new Date(d+"T12:00:00").getDate():""}</div>)}</div>
-          {habits.map(h=>{ const streak=habitStreak(h); return <div key={h.id} className="habit-row-wrap"><div style={{flex:1}}><div className="habit-row"><div className="habit-name-cell" title={h.name}>{h.name}</div>{last28Days().map(d=><div key={d} className={`habit-dot ${h.checked[d]?"checked":""}`} style={h.checked[d]?{background:h.color}:{}} onClick={()=>toggleHabit(h.id,d)} title={d}/>)}</div>{streak>1&&<div style={{paddingLeft:118,marginTop:-2,marginBottom:4}}><span className="habit-streak-label">🔥 {streak}-day streak</span></div>}</div><button className="habit-del" onClick={()=>deleteHabit(h.id)}>×</button></div>; })}
-          {habits.length===0&&<div className="empty-state" style={{padding:"20px 0"}}>No habits yet — add one below.</div>}
-        </div>
-        {addingHabit&&<><div className="add-habit-row"><input autoFocus className="add-habit-input" placeholder="Habit name (e.g. Morning walk, Read 20 min)" value={newHabitName} onChange={e=>setNewHabitName(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")addHabit();if(e.key==="Escape")setAddingHabit(false);}}/><button className="btn btn-primary" onClick={addHabit} disabled={!newHabitName.trim()}>Add</button></div><div className="habit-color-pick"><span style={{fontSize:11,color:"var(--text-dim)"}}>Colour:</span>{HABIT_COLORS.map(c=><div key={c} className={`habit-color-swatch ${newHabitColor===c?"selected":""}`} style={{background:c}} onClick={()=>setNewHabitColor(c)}/>)}</div></>}
-      </div>
       <div className="pattern-card"><h3>Consistent stressors</h3><p style={{marginBottom:16}}>What comes up most when you're feeling friction.</p><div className="bar-chart">{STRESS_PATTERNS.map(p=><div key={p.label} className="bar-row"><div className="bar-label">{p.label}</div><div className="bar-track"><div className="bar-fill stress" style={{width:`${p.pct}%`}}/></div><div className="bar-pct">{p.pct}%</div></div>)}</div></div>
       <div className="pattern-card"><h3>What lights you up</h3><p style={{marginBottom:16}}>Things consistently tied to your better days.</p><div className="bar-chart">{JOY_PATTERNS.map(p=><div key={p.label} className="bar-row"><div className="bar-label">{p.label}</div><div className="bar-track"><div className="bar-fill joy" style={{width:`${p.pct}%`}}/></div><div className="bar-pct">{p.pct}%</div></div>)}</div></div>
-      <div className="pattern-card">
-        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:4}}><h3>Goals</h3><button className="btn btn-ghost" style={{padding:"5px 12px",fontSize:12}} onClick={()=>setAddingGoal(v=>!v)}>{addingGoal?"Cancel":"+ Add goal"}</button></div>
-        <p style={{marginBottom:16}}>Directions, not tasks.</p>
-        {addingGoal&&<div className="add-goal-row"><input autoFocus className="add-goal-input" placeholder="What do you want to work towards?" value={newGoalText} onChange={e=>setNewGoalText(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")addManualGoal();if(e.key==="Escape")setAddingGoal(false);}}/><button className="btn btn-primary" onClick={addManualGoal} disabled={!newGoalText.trim()}>Add</button></div>}
-        {goals.map(g=><div key={g.id} className="goal-card"><div className="goal-header"><span className="goal-icon">{g.icon}</span><div className="goal-body"><div className="goal-title">{g.title}</div>{g.why&&<div className="goal-why">{g.why}</div>}</div></div><div className="goal-footer"><span className="goal-badge mine-badge">Your goal</span><div className="goal-actions"><button className="goal-btn delete" onClick={()=>deleteGoal(g.id)}>Remove</button></div></div></div>)}
-        {goals.length===0&&suggestedGoals.length===0&&<div className="empty-state" style={{padding:"20px 0"}}>No goals yet. Add one or let the app suggest some.</div>}
-        {suggestedGoals.map(sg=><div key={sg.id} className="goal-card suggested"><div className="goal-header"><span className="goal-icon">{sg.icon}</span><div className="goal-body"><div className="goal-title">{sg.title}</div>{sg.why&&<div className="goal-why">{sg.why}</div>}</div></div><div className="goal-footer"><span className="goal-badge suggested-badge">✦ Suggested for you</span><div className="goal-actions"><button className="goal-btn" onClick={()=>dismissSuggested(sg)}>Dismiss</button><button className="goal-btn accept" onClick={()=>acceptSuggested(sg)}>Add this →</button></div></div></div>)}
-        <button className="goals-suggest-btn" onClick={handleSuggestGoals} disabled={suggestingGoals||entries.length===0}>{suggestingGoals?<><div className="loading-dots" style={{padding:0}}><span/><span/><span/></div> Reading your entries...</>:<><span>✦</span> Suggest goals based on my entries</>}</button>
-      </div>
       <div className="summary-card"><div className="summary-month">Monthly summary · {monthYear}</div>{monthlySummary?<div className="summary-text">{monthlySummary}</div>:<><div className="summary-text" style={{marginBottom:12}}>Generate a personal summary of your month based on your real entries.</div><button className="digest-gen-btn" onClick={handleGenerateMonthlySummary} disabled={generatingMonthlySummary||entries.length===0}>{generatingMonthlySummary?<><div className="loading-dots" style={{padding:0}}><span/><span/><span/></div> Writing your summary...</>:<><span>✦</span> Generate monthly summary</>}</button></>}</div>
     </>}
 
+    {/* ── HISTORY ── */}
     {tab==="history"&&<>
       <div className="date-header"><div className="date-label">past entries</div><div className="date-main">Your journal</div></div>
       {dbLoading&&<div className="empty-state">Loading your entries...</div>}
