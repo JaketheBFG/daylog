@@ -1,4 +1,5 @@
-import { useEffect } from "react";
+import React, { useEffect, useState } from "react";
+
 
 const LANDING_STYLES = `
   @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;1,400;1,500&family=DM+Sans:wght@300;400;500&display=swap');
@@ -125,6 +126,7 @@ export default function Landing() {
 
   return (
     <div className="l-body">
+        <div className="l-body" style={{background:"#0e0c0a",minHeight:"100vh"}}></div>
       <style>{LANDING_STYLES}</style>
       <div className="l-glow"/>
 
