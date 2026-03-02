@@ -294,7 +294,8 @@ const OB_TIMES = [
   {emoji:"🌆",label:"Evening", sub:"Wind down and reflect",        value:"evening"},
   {emoji:"🌙",label:"Night",   sub:"Before sleep ritual",          value:"night"},
 ];
-
+const STRESS_PATTERNS = [{label:"Work meetings",pct:72},{label:"Commute",pct:58},{label:"Deadlines",pct:50},{label:"Social friction",pct:30}];
+const JOY_PATTERNS    = [{label:"Exercise",pct:80},{label:"Deep work",pct:75},{label:"Social time",pct:68},{label:"Cooking/food",pct:55}];
 const DEFAULT_GROUPS  = [{id:"work",name:"Work",color:"#7a9ec4"},{id:"errands",name:"Errands",color:"#c4a45a"},{id:"social",name:"Friends & Social",color:"#a47ac4"},{id:"health",name:"Health",color:"#6a9e78"}];
 
 function last28Days(){ return Array.from({length:28},(_,i)=>{ const d=new Date(); d.setDate(d.getDate()-(27-i)); return d.toISOString().split("T")[0]; }); }
@@ -327,6 +328,8 @@ export default function App() {
   const [authError, setAuthError] = useState("");
   const [authSuccess, setAuthSuccess] = useState("");
   const [authSubmitting, setAuthSubmitting] = useState(false);
+  const [authMode, setAuthMode] = useState("login"); // login | signup | forgot | reset
+  const [newPassword, setNewPassword] = useState("");
 
   // Onboarding
   const [obDone, setObDone] = useState(false);
@@ -396,6 +399,9 @@ export default function App() {
         if(meta?.ob_done) setObDone(true);
       }
     });
+    // Detect password reset flow from URL hash
+    const hash = window.location.hash;
+    if(hash.includes("type=recovery")) setAuthMode("reset");
     const {data:{subscription}}=supabase.auth.onAuthStateChange((_,session)=>{
       setSession(session);
       if(session){
@@ -445,6 +451,20 @@ export default function App() {
     setAuthSubmitting(true); setAuthError(""); setAuthSuccess("");
     const {error}=await supabase.auth.signInWithPassword({email:authEmail,password:authPassword});
     if(error) setAuthError(error.message);
+    setAuthSubmitting(false);
+  };
+  const handleForgotPassword = async()=>{
+    setAuthSubmitting(true); setAuthError(""); setAuthSuccess("");
+    const {error}=await supabase.auth.resetPasswordForEmail(authEmail,{redirectTo:"https://daylog-puce.vercel.app/reset-password"});
+    if(error) setAuthError(error.message);
+    else setAuthSuccess("Check your email for a reset link!");
+    setAuthSubmitting(false);
+  };
+  const handleUpdatePassword = async()=>{
+    setAuthSubmitting(true); setAuthError("");
+    const {error}=await supabase.auth.updateUser({password:newPassword});
+    if(error) setAuthError(error.message);
+    else { setAuthSuccess("Password updated! Signing you in..."); setAuthMode("login"); }
     setAuthSubmitting(false);
   };
   const handleSignOut = async()=>{
@@ -534,16 +554,30 @@ export default function App() {
           <div className="auth-logo">day<span>log</span></div>
           <div className="auth-tagline">your private space to reflect and grow</div>
           <div className="auth-box">
-            <div className="auth-tabs">
-              <button className={`auth-tab ${authTab==="login"?"active":""}`} onClick={()=>{setAuthTab("login");setAuthError("");setAuthSuccess("");}}>Sign in</button>
-              <button className={`auth-tab ${authTab==="signup"?"active":""}`} onClick={()=>{setAuthTab("signup");setAuthError("");setAuthSuccess("");}}>Create account</button>
-            </div>
-            {authTab==="signup"&&<div className="auth-field"><label className="auth-label">Your name</label><input className="auth-input" placeholder="First name" value={authName} onChange={e=>setAuthName(e.target.value)}/></div>}
-            <div className="auth-field"><label className="auth-label">Email</label><input className="auth-input" type="email" placeholder="you@example.com" value={authEmail} onChange={e=>setAuthEmail(e.target.value)} onKeyDown={e=>e.key==="Enter"&&(authTab==="login"?handleSignIn():handleSignUp())}/></div>
-            <div className="auth-field"><label className="auth-label">Password</label><input className="auth-input" type="password" placeholder="••••••••" value={authPassword} onChange={e=>setAuthPassword(e.target.value)} onKeyDown={e=>e.key==="Enter"&&(authTab==="login"?handleSignIn():handleSignUp())}/></div>
-            <button className="auth-btn" onClick={authTab==="login"?handleSignIn:handleSignUp} disabled={authSubmitting||!authEmail||!authPassword}>
-              {authSubmitting?"...":(authTab==="login"?"Sign in →":"Create account →")}
-            </button>
+            {authMode==="reset"?<>
+              <div style={{fontFamily:"Playfair Display,serif",fontSize:17,color:"var(--cream)",marginBottom:6}}>Set a new password</div>
+              <div style={{fontSize:13,color:"var(--text-muted)",marginBottom:20}}>Choose something you'll remember.</div>
+              <div className="auth-field"><label className="auth-label">New password</label><input className="auth-input" type="password" placeholder="••••••••" value={newPassword} onChange={e=>setNewPassword(e.target.value)} onKeyDown={e=>e.key==="Enter"&&handleUpdatePassword()}/></div>
+              <button className="auth-btn" onClick={handleUpdatePassword} disabled={authSubmitting||!newPassword||newPassword.length<6}>{authSubmitting?"...":"Update password →"}</button>
+            </>:authMode==="forgot"?<>
+              <div style={{fontFamily:"Playfair Display,serif",fontSize:17,color:"var(--cream)",marginBottom:6}}>Reset your password</div>
+              <div style={{fontSize:13,color:"var(--text-muted)",marginBottom:20}}>We'll send a reset link to your email.</div>
+              <div className="auth-field"><label className="auth-label">Email</label><input className="auth-input" type="email" placeholder="you@example.com" value={authEmail} onChange={e=>setAuthEmail(e.target.value)} onKeyDown={e=>e.key==="Enter"&&handleForgotPassword()}/></div>
+              <button className="auth-btn" onClick={handleForgotPassword} disabled={authSubmitting||!authEmail}>{authSubmitting?"...":"Send reset link →"}</button>
+              <div style={{textAlign:"center",marginTop:12}}><span style={{fontSize:12,color:"var(--text-dim)",cursor:"pointer"}} onClick={()=>{setAuthMode("login");setAuthError("");setAuthSuccess("");}}>← Back to sign in</span></div>
+            </>:<>
+              <div className="auth-tabs">
+                <button className={`auth-tab ${authMode==="login"?"active":""}`} onClick={()=>{setAuthMode("login");setAuthError("");setAuthSuccess("");}}>Sign in</button>
+                <button className={`auth-tab ${authMode==="signup"?"active":""}`} onClick={()=>{setAuthMode("signup");setAuthError("");setAuthSuccess("");}}>Create account</button>
+              </div>
+              {authMode==="signup"&&<div className="auth-field"><label className="auth-label">Your name</label><input className="auth-input" placeholder="First name" value={authName} onChange={e=>setAuthName(e.target.value)}/></div>}
+              <div className="auth-field"><label className="auth-label">Email</label><input className="auth-input" type="email" placeholder="you@example.com" value={authEmail} onChange={e=>setAuthEmail(e.target.value)} onKeyDown={e=>e.key==="Enter"&&(authMode==="login"?handleSignIn():handleSignUp())}/></div>
+              <div className="auth-field"><label className="auth-label">Password</label><input className="auth-input" type="password" placeholder="••••••••" value={authPassword} onChange={e=>setAuthPassword(e.target.value)} onKeyDown={e=>e.key==="Enter"&&(authMode==="login"?handleSignIn():handleSignUp())}/></div>
+              <button className="auth-btn" onClick={authMode==="login"?handleSignIn:handleSignUp} disabled={authSubmitting||!authEmail||!authPassword}>
+                {authSubmitting?"...":(authMode==="login"?"Sign in →":"Create account →")}
+              </button>
+              {authMode==="login"&&<div style={{textAlign:"center",marginTop:10}}><span style={{fontSize:12,color:"var(--text-dim)",cursor:"pointer"}} onClick={()=>{setAuthMode("forgot");setAuthError("");setAuthSuccess("");}}>Forgot password?</span></div>}
+            </>}
             {authError&&<div className="auth-error">{authError}</div>}
             {authSuccess&&<div className="auth-success">{authSuccess}</div>}
           </div>
@@ -736,4 +770,3 @@ export default function App() {
 
   </div></>);
 }
-
