@@ -309,20 +309,30 @@ function lastNDays(n){ return Array.from({length:n},(_,i)=>{ const d=new Date();
 function formatDate(d){ return new Date(d+"T12:00:00").toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"}); }
 function shortDate(d){ return new Date(d+"T12:00:00").toLocaleDateString("en-US",{month:"short",day:"numeric"}); }
 
-async function callClaude(prompt,maxTokens=1000){
+async function checkAndIncrementUsage(userId){
+  const today = new Date().toISOString().split("T")[0];
+  const {data} = await supabase.from("ai_usage").select("count").eq("user_id",userId).eq("date",today).single();
+  if(data?.count >= 10) return false;
+  await supabase.from("ai_usage").upsert({user_id:userId, date:today, count:(data?.count||0)+1},{onConflict:"user_id,date"});
+  return true;
+}
+
+async function callClaude(prompt,maxTokens=1000,userId=null){
+  if(userId){
+    const allowed = await checkAndIncrementUsage(userId);
+    if(!allowed) throw new Error("RATE_LIMIT");
+  }
   const res=await fetch("/api/reflect",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:maxTokens,messages:[{role:"user",content:prompt}]})});
   const data=await res.json();
   return (data.content?.find(b=>b.type==="text")?.text||"{}").replace(/```json|```/g,"").trim();
 }
-async function analyzeEntry(text,subTodos,subLearned,subGratitude){ 
+async function analyzeEntry(text,subTodos,subLearned,subGratitude,userId=null){ 
   const extra = [subTodos&&`TO-DOS SECTION: ${subTodos}`,subLearned&&`THINGS I LEARNED: ${subLearned}`,subGratitude&&`GRATITUDE: ${subGratitude}`].filter(Boolean).join("\n");
   const fullText = extra ? `${text}\n\n${extra}` : text;
-  return JSON.parse(await callClaude(`Analyze this journal entry and respond ONLY with valid JSON. Extract todos PRIMARILY from the TO-DOS SECTION if present.\n{"todos":["action item"],"stressTags":["2-4 word label"],"joyTags":["2-4 word label"],"insight":"One warm sentence."}\nEntry:\n${fullText}`)); 
+  return JSON.parse(await callClaude(`Analyze this journal entry and respond ONLY with valid JSON. Extract todos PRIMARILY from the TO-DOS SECTION if present.\n{"todos":["action item"],"stressTags":["2-4 word label"],"joyTags":["2-4 word label"],"insight":"One warm sentence."}\nEntry:\n${fullText}`,1000,userId)); 
 }
-async function suggestGoals(entries){ return JSON.parse(await callClaude(`Suggest 3 personal growth goals based on these journal entries. Focus on happiness and wellbeing, NOT productivity.\n${entries.slice(0,5).map(e=>`${e.date}: ${e.text}`).join("\n")}\nRespond ONLY with valid JSON array:\n[{"title":"goal","why":"reason","icon":"emoji"}]`)); }
-async function generateMonthlySummary(entries, userName){ return JSON.parse(await callClaude(`Write a warm monthly summary for ${userName||"this person"} based on their journal entries this month.\nEntries:\n${entries.slice(0,20).map(e=>`${e.date}: ${e.text}`).join("\n\n")}\nRespond ONLY with valid JSON:\n{"summary":"2-3 sentence warm paragraph summarizing their month, patterns, and growth"}`,600)); }
-async function generateWeeklyDigest(entries,userName){ return JSON.parse(await callClaude(`Write a personal weekly reflection for ${userName||"this person"}.\nEntries:\n${entries.slice(0,7).map(e=>`${e.date} (mood ${e.mood||"?"}/5): ${e.text}`).join("\n\n")}\nRespond ONLY with valid JSON:\n{"headline":"evocative sentence","highlight":"best moment","pattern":"recurring observation","nudge":"one kind suggestion for next week"}`,800)); }
-
+async function suggestGoals(entries,userId=null){ return JSON.parse(await callClaude(`Suggest 3 personal growth goals based on these journal entries. Focus on happiness and wellbeing, NOT productivity.\n${entries.slice(0,5).map(e=>`${e.date}: ${e.text}`).join("\n")}\nRespond ONLY with valid JSON array:\n[{"title":"goal","why":"reason","icon":"emoji"}]`,1000,userId)); }async function generateMonthlySummary(entries,userName,userId=null){ return JSON.parse(await callClaude(`Write a warm monthly summary for ${userName||"this person"} based on their journal entries this month.\nEntries:\n${entries.slice(0,20).map(e=>`${e.date}: ${e.text}`).join("\n\n")}\nRespond ONLY with valid JSON:\n{"summary":"2-3 sentence warm paragraph summarizing their month, patterns, and growth"}`,600,userId)); }
+async function generateWeeklyDigest(entries,userName,userId=null){ return JSON.parse(await callClaude(`Write a personal weekly reflection for ${userName||"this person"}.\nEntries:\n${entries.slice(0,7).map(e=>`${e.date} (mood ${e.mood||"?"}/5): ${e.text}`).join("\n\n")}\nRespond ONLY with valid JSON:\n{"headline":"evocative sentence","highlight":"best moment","pattern":"recurring observation","nudge":"one kind suggestion for next week"}`,800,userId)); }
 export default function App() {
   // Auth
   const [session, setSession] = useState(null);
@@ -511,17 +521,14 @@ export default function App() {
   const dismissSuggested=(sg)=>setSuggestedGoals(p=>p.filter(x=>x!==sg));
   const deleteGoal=async(gid)=>{ setGoals(p=>p.filter(g=>g.id!==gid)); await supabase.from("goals").delete().eq("id",gid); };
   const addManualGoal=async()=>{ if(!newGoalText.trim()||!session)return; const g={id:"g"+Date.now(),title:newGoalText.trim(),why:"",icon:"✦",source:"mine",user_id:session.user.id}; setGoals(p=>[...p,g]); await supabase.from("goals").insert(g); setNewGoalText(""); setAddingGoal(false); };
-  const handleSuggestGoals=async()=>{ setSuggestingGoals(true); try{ const s=await suggestGoals(entries); setSuggestedGoals(s.map(g=>({...g,id:"sg"+Date.now()+Math.random()}))); }catch(e){} setSuggestingGoals(false); };
-  const handleGenerateMonthlySummary=async()=>{ setGeneratingMonthlySummary(true); try{ const d=await generateMonthlySummary(entries,userName); setMonthlySummary(d.summary); }catch(e){} setGeneratingMonthlySummary(false); };
-  const handleGenerateDigest=async()=>{ setGeneratingDigest(true); try{ const d=await generateWeeklyDigest(entries,userName); setDigest(d); }catch(e){} setGeneratingDigest(false); };
-
+const handleSuggestGoals=async()=>{ setSuggestingGoals(true); try{ const s=await suggestGoals(entries,session.user.id); setSuggestedGoals(s.map(g=>({...g,id:"sg"+Date.now()+Math.random()}))); }catch(e){} setSuggestingGoals(false); };  const handleGenerateMonthlySummary=async()=>{ setGeneratingMonthlySummary(true); try{ const d=await generateMonthlySummary(entries,userName,session.user.id); setMonthlySummary(d.summary); }catch(e){} setGeneratingMonthlySummary(false); };
+const handleGenerateDigest=async()=>{ setGeneratingDigest(true); try{ const d=await generateWeeklyDigest(entries,userName,session.user.id); setDigest(d); }catch(e){} setGeneratingDigest(false); };
   // ── Entry analysis ──
   const handleAnalyze=async()=>{
     if(!text.trim()||!session)return;
     setLoading(true); setResult(null);
     try{
-      const parsed=await analyzeEntry(text);
-      setResult(parsed); setTodos(parsed.todos||[]);
+const parsed=await analyzeEntry(text,subTodos,subLearned,subGratitude,session.user.id);      setResult(parsed); setTodos(parsed.todos||[]);
       const entry={date:todayStr,mood:todayMood,text,todos:parsed.todos||[],stress_tags:parsed.stressTags||[],joy_tags:parsed.joyTags||[],insight:parsed.insight||"",user_id:session.user.id};
       const {data}=await supabase.from("entries").insert(entry).select().single();
       if(data) setEntries(p=>[{...data,stressTags:data.stress_tags||[],joyTags:data.joy_tags||[]},...p]);
@@ -737,8 +744,7 @@ export default function App() {
         {(result.stressTags?.length>0||result.joyTags?.length>0)&&<div className="analysis-section"><div className="section-label">Today's signals</div><div className="tags-row">{result.stressTags?.map((t,i)=><span key={i} className="tag tag-stress">↑ {t}</span>)}{result.joyTags?.map((t,i)=><span key={i} className="tag tag-joy">✦ {t}</span>)}</div></div>}
         {result.insight&&<div className="analysis-section"><div className="section-label">Observation</div><div className="insight-box">"{result.insight}"</div></div>}
       </>}
-      {result?.error&&<div className="entry-card"><div className="entry-prompt">Couldn't parse that — try again or check your connection.</div></div>}
-    </>}
+{result?.error&&<div className="entry-card"><div className="entry-prompt">{result.rateLimit?"You've used all 10 reflections for today — come back tomorrow 🌙":"Couldn't parse that — try again or check your connection."}</div></div>}    </>}
 
     {/* ── TASKS ── */}
     {tab==="tasks"&&<>
