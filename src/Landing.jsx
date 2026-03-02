@@ -23,12 +23,12 @@ const LANDING_STYLES = `
   .l-nav-cta:hover { background:var(--amber-soft); transform:translateY(-1px); }
 
   /* HERO */
-.l-hero { min-height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:80px 24px 80px; position:relative; z-index:1; margin-top:-60px; }  .l-eyebrow { font-size:11px; font-weight:500; letter-spacing:2px; text-transform:uppercase; color:var(--amber-soft); margin-bottom:24px; opacity:0; animation:fadeUp 0.8s ease 0.2s forwards; }
-  .l-hero-title { font-family:'Playfair Display',serif; font-size:clamp(42px,8vw,80px); color:var(--cream); line-height:1.1; letter-spacing:-1.5px; margin-bottom:24px; max-width:700px; opacity:0; animation:fadeUp 0.8s ease 0.35s forwards; }
+.l-hero { min-height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:80px 24px 80px; position:relative; z-index:1; margin-top:-60px; }  .l-eyebrow { font-size:11px; font-weight:500; letter-spacing:2px; text-transform:uppercase; color:var(--amber-soft); margin-bottom:24px; }
+  .l-hero-title { font-family:'Playfair Display',serif; font-size:clamp(42px,8vw,80px); color:var(--cream); line-height:1.1; letter-spacing:-1.5px; margin-bottom:24px; max-width:700px; }
   .l-hero-title em { font-style:italic; color:var(--amber-soft); }
-  .l-hero-sub { font-size:clamp(16px,2.5vw,19px); color:var(--text-muted); line-height:1.7; max-width:480px; margin-bottom:48px; opacity:0; animation:fadeUp 0.8s ease 0.5s forwards; }
-  .l-hero-actions { display:flex; gap:12px; align-items:center; flex-wrap:wrap; justify-content:center; opacity:0; animation:fadeUp 0.8s ease 0.65s forwards; }
-  .l-hero-note { margin-top:20px; font-size:12px; color:var(--text-dim); font-style:italic; opacity:0; animation:fadeUp 0.8s ease 0.8s forwards; }
+  .l-hero-sub { font-size:clamp(16px,2.5vw,19px); color:var(--text-muted); line-height:1.7; max-width:480px; margin-bottom:48px; }
+  .l-hero-actions { display:flex; gap:12px; align-items:center; flex-wrap:wrap; justify-content:center; }
+  .l-hero-note { margin-top:20px; font-size:12px; color:var(--text-dim); font-style:italic; }
 
   /* BUTTONS */
   .l-btn-primary { padding:14px 28px; border-radius:12px; background:var(--amber); color:#0e0c0a; font-family:'DM Sans',sans-serif; font-size:15px; font-weight:500; text-decoration:none; transition:all 0.2s; border:none; cursor:pointer; display:inline-block; }
@@ -124,8 +124,7 @@ export default function Landing() {
   }, []);
 
   return (
-    <div className="l-body">
-        <div className="l-body" style={{background:"#0e0c0a",minHeight:"100vh"}}></div>
+   <div className="l-body">
       <style>{LANDING_STYLES}</style>
       <div className="l-glow"/>
 
