@@ -402,7 +402,8 @@ export default function App() {
     // Detect password reset flow from URL hash
     const hash = window.location.hash;
     if(hash.includes("type=recovery")) setAuthMode("reset");
-    const {data:{subscription}}=supabase.auth.onAuthStateChange((_,session)=>{
+    const {data:{subscription}}=supabase.auth.onAuthStateChange((event,session)=>{
+      if(event==="PASSWORD_RECOVERY"){ setAuthMode("reset"); return; }
       setSession(session);
       if(session){
         const meta = session.user.user_metadata;
