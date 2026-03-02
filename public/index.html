@@ -1,0 +1,703 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Throughline — See yourself more clearly</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;1,400;1,500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0e0c0a;
+      --surface: #1a1714;
+      --surface2: #221f1b;
+      --border: #2e2a25;
+      --text: #e8e0d4;
+      --text-muted: #7a7068;
+      --text-dim: #4a4540;
+      --amber: #c8882a;
+      --amber-soft: #e8a84a;
+      --amber-dim: #3a2a10;
+      --cream: #f0e8d8;
+      --sage: #6a9e78;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'DM Sans', sans-serif;
+      font-weight: 300;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* grain overlay */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 100;
+      opacity: 0.035;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+    }
+
+    /* glow */
+    .glow {
+      position: fixed;
+      width: 800px;
+      height: 800px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(200,136,42,0.07) 0%, transparent 70%);
+      pointer-events: none;
+      top: -300px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 0;
+    }
+
+    /* ── NAV ── */
+    nav {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      z-index: 50;
+      padding: 20px 40px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: rgba(14,12,10,0.8);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid rgba(46,42,37,0.5);
+    }
+
+    .nav-logo {
+      font-family: 'Playfair Display', serif;
+      font-size: 20px;
+      color: var(--cream);
+      letter-spacing: -0.5px;
+      text-decoration: none;
+    }
+
+    .nav-logo span { color: var(--amber-soft); font-style: italic; }
+
+    .nav-cta {
+      padding: 9px 20px;
+      border-radius: 10px;
+      background: var(--amber);
+      color: #0e0c0a;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 13px;
+      font-weight: 500;
+      text-decoration: none;
+      transition: all 0.2s;
+    }
+
+    .nav-cta:hover { background: var(--amber-soft); transform: translateY(-1px); }
+
+    /* ── HERO ── */
+    .hero {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 120px 24px 80px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .hero-eyebrow {
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--amber-soft);
+      margin-bottom: 24px;
+      opacity: 0;
+      animation: fadeUp 0.8s ease 0.2s forwards;
+    }
+
+    .hero-title {
+      font-family: 'Playfair Display', serif;
+      font-size: clamp(42px, 8vw, 80px);
+      color: var(--cream);
+      line-height: 1.1;
+      letter-spacing: -1.5px;
+      margin-bottom: 24px;
+      max-width: 700px;
+      opacity: 0;
+      animation: fadeUp 0.8s ease 0.35s forwards;
+    }
+
+    .hero-title em {
+      font-style: italic;
+      color: var(--amber-soft);
+    }
+
+    .hero-sub {
+      font-size: clamp(16px, 2.5vw, 19px);
+      color: var(--text-muted);
+      line-height: 1.7;
+      max-width: 480px;
+      margin-bottom: 48px;
+      opacity: 0;
+      animation: fadeUp 0.8s ease 0.5s forwards;
+    }
+
+    .hero-actions {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      flex-wrap: wrap;
+      justify-content: center;
+      opacity: 0;
+      animation: fadeUp 0.8s ease 0.65s forwards;
+    }
+
+    .btn-primary {
+      padding: 14px 28px;
+      border-radius: 12px;
+      background: var(--amber);
+      color: #0e0c0a;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 15px;
+      font-weight: 500;
+      text-decoration: none;
+      transition: all 0.2s;
+      border: none;
+      cursor: pointer;
+    }
+
+    .btn-primary:hover { background: var(--amber-soft); transform: translateY(-2px); }
+
+    .btn-ghost {
+      padding: 14px 28px;
+      border-radius: 12px;
+      background: transparent;
+      color: var(--text-muted);
+      font-family: 'DM Sans', sans-serif;
+      font-size: 15px;
+      font-weight: 400;
+      text-decoration: none;
+      border: 1px solid var(--border);
+      transition: all 0.2s;
+    }
+
+    .btn-ghost:hover { color: var(--text); border-color: var(--text-muted); }
+
+    .hero-note {
+      margin-top: 20px;
+      font-size: 12px;
+      color: var(--text-dim);
+      font-style: italic;
+      opacity: 0;
+      animation: fadeUp 0.8s ease 0.8s forwards;
+    }
+
+    /* ── SOCIAL PROOF ── */
+    .proof {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 32px;
+      padding: 32px 24px;
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+      flex-wrap: wrap;
+      position: relative;
+      z-index: 1;
+    }
+
+    .proof-item {
+      text-align: center;
+    }
+
+    .proof-num {
+      font-family: 'Playfair Display', serif;
+      font-size: 28px;
+      color: var(--cream);
+      font-style: italic;
+    }
+
+    .proof-label {
+      font-size: 11px;
+      color: var(--text-muted);
+      letter-spacing: 0.5px;
+      margin-top: 3px;
+    }
+
+    .proof-divider {
+      width: 1px;
+      height: 40px;
+      background: var(--border);
+    }
+
+    /* ── SECTIONS SHARED ── */
+    section {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 100px 24px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .section-eyebrow {
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--amber-soft);
+      margin-bottom: 16px;
+    }
+
+    .section-title {
+      font-family: 'Playfair Display', serif;
+      font-size: clamp(28px, 5vw, 44px);
+      color: var(--cream);
+      line-height: 1.2;
+      letter-spacing: -0.5px;
+      margin-bottom: 16px;
+    }
+
+    .section-title em { font-style: italic; color: var(--amber-soft); }
+
+    .section-sub {
+      font-size: 16px;
+      color: var(--text-muted);
+      line-height: 1.7;
+      max-width: 520px;
+    }
+
+    /* ── FEATURES ── */
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 16px;
+      margin-top: 56px;
+    }
+
+    .feature-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 28px;
+      transition: border-color 0.2s, transform 0.2s;
+    }
+
+    .feature-card:hover {
+      border-color: rgba(200,136,42,0.3);
+      transform: translateY(-3px);
+    }
+
+    .feature-icon {
+      font-size: 26px;
+      margin-bottom: 16px;
+      display: block;
+    }
+
+    .feature-title {
+      font-family: 'Playfair Display', serif;
+      font-size: 18px;
+      color: var(--cream);
+      margin-bottom: 8px;
+    }
+
+    .feature-desc {
+      font-size: 14px;
+      color: var(--text-muted);
+      line-height: 1.65;
+    }
+
+    /* ── HOW IT WORKS ── */
+    .how-wrap {
+      margin-top: 56px;
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+
+    .how-step {
+      display: flex;
+      gap: 28px;
+      align-items: flex-start;
+      padding: 32px 0;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .how-step:last-child { border-bottom: none; }
+
+    .how-num {
+      font-family: 'Playfair Display', serif;
+      font-size: 48px;
+      color: var(--amber-dim);
+      font-style: italic;
+      line-height: 1;
+      flex-shrink: 0;
+      width: 52px;
+    }
+
+    .how-body {}
+
+    .how-title {
+      font-family: 'Playfair Display', serif;
+      font-size: 20px;
+      color: var(--cream);
+      margin-bottom: 8px;
+    }
+
+    .how-desc {
+      font-size: 14px;
+      color: var(--text-muted);
+      line-height: 1.65;
+      max-width: 480px;
+    }
+
+    /* ── TESTIMONIALS ── */
+    .testimonials-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 16px;
+      margin-top: 56px;
+    }
+
+    .testimonial-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 28px;
+    }
+
+    .testimonial-text {
+      font-family: 'Playfair Display', serif;
+      font-size: 16px;
+      font-style: italic;
+      color: var(--text);
+      line-height: 1.7;
+      margin-bottom: 20px;
+    }
+
+    .testimonial-author {
+      font-size: 12px;
+      color: var(--text-dim);
+      letter-spacing: 0.5px;
+    }
+
+    .testimonial-author strong {
+      color: var(--text-muted);
+      display: block;
+      font-weight: 400;
+      margin-bottom: 2px;
+    }
+
+    /* ── CTA ── */
+    .cta-section {
+      text-align: center;
+      padding: 100px 24px;
+      position: relative;
+      z-index: 1;
+      border-top: 1px solid var(--border);
+    }
+
+    .cta-inner {
+      max-width: 560px;
+      margin: 0 auto;
+    }
+
+    .waitlist-form {
+      display: flex;
+      gap: 10px;
+      max-width: 420px;
+      margin: 36px auto 0;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .waitlist-input {
+      flex: 1;
+      min-width: 220px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px 16px;
+      color: var(--text);
+      font-family: 'DM Sans', sans-serif;
+      font-size: 14px;
+      font-weight: 300;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    .waitlist-input:focus { border-color: var(--amber); }
+    .waitlist-input::placeholder { color: var(--text-dim); }
+
+    .waitlist-success {
+      display: none;
+      font-size: 14px;
+      color: var(--sage);
+      font-style: italic;
+      margin-top: 16px;
+    }
+
+    .cta-note {
+      font-size: 12px;
+      color: var(--text-dim);
+      margin-top: 16px;
+      font-style: italic;
+    }
+
+    /* ── FOOTER ── */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 32px 40px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 16px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .footer-logo {
+      font-family: 'Playfair Display', serif;
+      font-size: 16px;
+      color: var(--text-muted);
+      text-decoration: none;
+    }
+
+    .footer-logo span { color: var(--amber-soft); font-style: italic; }
+
+    .footer-links {
+      display: flex;
+      gap: 24px;
+    }
+
+    .footer-links a {
+      font-size: 12px;
+      color: var(--text-dim);
+      text-decoration: none;
+      transition: color 0.15s;
+    }
+
+    .footer-links a:hover { color: var(--text-muted); }
+
+    .footer-copy {
+      font-size: 11px;
+      color: var(--text-dim);
+    }
+
+    /* ── ANIMATIONS ── */
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(16px); }
+      to { opacity: 1; transform: none; }
+    }
+
+    .fade-up {
+      opacity: 0;
+      transform: translateY(20px);
+      transition: opacity 0.7s ease, transform 0.7s ease;
+    }
+
+    .fade-up.visible {
+      opacity: 1;
+      transform: none;
+    }
+
+    /* ── MOBILE ── */
+    @media (max-width: 600px) {
+      nav { padding: 16px 20px; }
+      .hero { padding: 100px 20px 60px; }
+      .proof { gap: 20px; }
+      .proof-divider { display: none; }
+      section { padding: 70px 20px; }
+      .how-step { flex-direction: column; gap: 12px; }
+      .how-num { font-size: 32px; }
+      footer { padding: 24px 20px; flex-direction: column; align-items: flex-start; }
+    }
+  </style>
+</head>
+<body>
+  <div class="glow"></div>
+
+  <!-- NAV -->
+  <nav>
+    <a href="/" class="nav-logo">through<span>line</span></a>
+    <a href="/app" class="nav-cta">Start journaling →</a>
+  </nav>
+
+  <!-- HERO -->
+  <div class="hero">
+    <div class="hero-eyebrow">Private · Personal · Thoughtful</div>
+    <h1 class="hero-title">See yourself <em>more clearly</em></h1>
+    <p class="hero-sub">Throughline is a private journal that listens, finds patterns in your days, and gently helps you understand yourself over time.</p>
+    <div class="hero-actions">
+      <a href="/app" class="btn-primary">Start for free →</a>
+      <a href="#how" class="btn-ghost">See how it works</a>
+    </div>
+    <p class="hero-note">No credit card. Your entries are private and encrypted.</p>
+  </div>
+
+  <!-- PROOF -->
+  <div class="proof">
+    <div class="proof-item">
+      <div class="proof-num">Free</div>
+      <div class="proof-label">To get started</div>
+    </div>
+    <div class="proof-divider"></div>
+    <div class="proof-item">
+      <div class="proof-num">Private</div>
+      <div class="proof-label">Encrypted & yours only</div>
+    </div>
+    <div class="proof-divider"></div>
+    <div class="proof-item">
+      <div class="proof-num">AI-powered</div>
+      <div class="proof-label">Insights from your entries</div>
+    </div>
+  </div>
+
+  <!-- FEATURES -->
+  <section id="features">
+    <div class="fade-up">
+      <div class="section-eyebrow">What Throughline does</div>
+      <h2 class="section-title">Everything you need to <em>reflect and grow</em></h2>
+      <p class="section-sub">Write or speak freely. Throughline handles the rest — finding the patterns you can't always see yourself.</p>
+    </div>
+    <div class="features-grid">
+      <div class="feature-card fade-up">
+        <span class="feature-icon">🎙</span>
+        <div class="feature-title">Voice or text</div>
+        <p class="feature-desc">Just talk. No structure needed. Throughline transcribes your voice and turns it into a written entry automatically.</p>
+      </div>
+      <div class="feature-card fade-up">
+        <span class="feature-icon">✦</span>
+        <div class="feature-title">AI reflections</div>
+        <p class="feature-desc">After each entry, get a gentle observation about your day — what you're carrying, what lit you up, what to carry forward.</p>
+      </div>
+      <div class="feature-card fade-up">
+        <span class="feature-icon">📈</span>
+        <div class="feature-title">Mood patterns</div>
+        <p class="feature-desc">See your emotional rhythms over time. Understand what consistently drains you and what consistently makes you feel alive.</p>
+      </div>
+      <div class="feature-card fade-up">
+        <span class="feature-icon">🌿</span>
+        <div class="feature-title">Habits & goals</div>
+        <p class="feature-desc">Track what you're building. Set directions — not just tasks. Let the app suggest goals based on what you actually write about.</p>
+      </div>
+      <div class="feature-card fade-up">
+        <span class="feature-icon">✅</span>
+        <div class="feature-title">Tasks from your entries</div>
+        <p class="feature-desc">Throughline pulls action items out of your entries automatically and adds them to your task list so nothing slips through.</p>
+      </div>
+      <div class="feature-card fade-up">
+        <span class="feature-icon">🔒</span>
+        <div class="feature-title">Completely private</div>
+        <p class="feature-desc">Your journal is encrypted and only accessible to you. We don't sell your data or use your entries for advertising. Ever.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- HOW IT WORKS -->
+  <section id="how" style="border-top: 1px solid var(--border);">
+    <div class="fade-up">
+      <div class="section-eyebrow">How it works</div>
+      <h2 class="section-title">Three minutes a day. <em>A lifetime of clarity.</em></h2>
+    </div>
+    <div class="how-wrap">
+      <div class="how-step fade-up">
+        <div class="how-num">1</div>
+        <div class="how-body">
+          <div class="how-title">Write or speak about your day</div>
+          <p class="how-desc">No prompts, no structure, no pressure. Just open the app and start. Talk about the meeting that went sideways, the moment that made you smile, or what's been sitting heavy all week.</p>
+        </div>
+      </div>
+      <div class="how-step fade-up">
+        <div class="how-num">2</div>
+        <div class="how-body">
+          <div class="how-title">Get a personal reflection</div>
+          <p class="how-desc">Throughline reads your entry and surfaces what matters — action items, emotional signals, and a warm observation written just for you.</p>
+        </div>
+      </div>
+      <div class="how-step fade-up">
+        <div class="how-num">3</div>
+        <div class="how-body">
+          <div class="how-title">Watch patterns emerge over time</div>
+          <p class="how-desc">Week by week, your journal builds a picture of who you are — what drains you, what fuels you, and where you're quietly growing.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- TESTIMONIALS -->
+  <section id="testimonials" style="border-top: 1px solid var(--border);">
+    <div class="fade-up">
+      <div class="section-eyebrow">Early users</div>
+      <h2 class="section-title">What people are <em>saying</em></h2>
+    </div>
+    <div class="testimonials-grid">
+      <div class="testimonial-card fade-up">
+        <p class="testimonial-text">"I've tried every journaling app. This is the first one that actually made me feel understood."</p>
+        <div class="testimonial-author"><strong>Early beta user</strong>Designer, New York</div>
+      </div>
+      <div class="testimonial-card fade-up">
+        <p class="testimonial-text">"The voice entry feature changed everything. I just talk on my walk home and it handles the rest."</p>
+        <div class="testimonial-author"><strong>Early beta user</strong>Engineer, San Francisco</div>
+      </div>
+      <div class="testimonial-card fade-up">
+        <p class="testimonial-text">"Three weeks in and I can already see patterns I had no idea were there. It's kind of remarkable."</p>
+        <div class="testimonial-author"><strong>Early beta user</strong>Teacher, Chicago</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA -->
+  <div class="cta-section">
+    <div class="cta-inner fade-up">
+      <div class="section-eyebrow">Get early access</div>
+      <h2 class="section-title">Ready to see yourself <em>more clearly?</em></h2>
+      <p class="section-sub" style="margin: 0 auto;">Join the waitlist and be first to know when the mobile app launches.</p>
+      <form class="waitlist-form" onsubmit="handleWaitlist(event)">
+        <input class="waitlist-input" type="email" placeholder="your@email.com" required/>
+        <button type="submit" class="btn-primary">Join waitlist →</button>
+      </form>
+      <p id="waitlist-success" class="waitlist-success">You're on the list — we'll be in touch ✦</p>
+      <p class="cta-note">Or <a href="/app" style="color:var(--amber-soft);text-decoration:none;">start using the web app now</a> — it's free.</p>
+    </div>
+  </div>
+
+  <!-- FOOTER -->
+  <footer>
+    <a href="/" class="footer-logo">through<span>line</span></a>
+    <div class="footer-links">
+      <a href="/privacy-policy">Privacy policy</a>
+      <a href="/terms-of-service">Terms of service</a>
+      <a href="mailto:privacy@throughline.app">Contact</a>
+    </div>
+    <div class="footer-copy">© 2026 Throughline</div>
+  </footer>
+
+  <script>
+    // Scroll animations
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry, i) => {
+        if (entry.isIntersecting) {
+          setTimeout(() => entry.target.classList.add('visible'), i * 80);
+        }
+      });
+    }, { threshold: 0.1 });
+
+    document.querySelectorAll('.fade-up').forEach(el => observer.observe(el));
+
+    // Waitlist form
+    function handleWaitlist(e) {
+      e.preventDefault();
+      document.getElementById('waitlist-success').style.display = 'block';
+      e.target.style.display = 'none';
+    }
+  </script>
+</body>
+</html>
