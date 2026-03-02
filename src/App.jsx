@@ -470,7 +470,7 @@ export default function App() {
   };
   const handleForgotPassword = async()=>{
     setAuthSubmitting(true); setAuthError(""); setAuthSuccess("");
-    const {error}=await supabase.auth.resetPasswordForEmail(authEmail,{redirectTo:"https://daylog-puce.vercel.app/reset-password"});
+    const {error}=await supabase.auth.resetPasswordForEmail(authEmail,{redirectTo:"https://throughline-puce.vercel.app/reset-password"});
     if(error) setAuthError(error.message);
     else setAuthSuccess("Check your email for a reset link!");
     setAuthSubmitting(false);
@@ -563,7 +563,7 @@ const parsed=await analyzeEntry(text,subTodos,subLearned,subGratitude,session.us
     return(<><style>{STYLES}</style><div className="grain"/><div className="glow"/>
       <div className="auth-wrap">
         <div className="auth-card">
-          <div className="auth-logo">day<span>log</span></div>
+          <div className="auth-logo">through<span>line</span></div>
           <div className="auth-tagline">your private space to reflect and grow</div>
           <div className="auth-box">
             {authMode==="reset"?<>
@@ -605,11 +605,11 @@ const parsed=await analyzeEntry(text,subTodos,subLearned,subGratitude,session.us
   if(!obDone){
     return(<><style>{STYLES}</style><div className="grain"/><div className="glow"/>
       <div className="ob-wrap"><div className="ob-card">
-        <div className="ob-logo">day<span>log</span></div>
+        <div className="ob-logo">through<span>line</span></div>
         <div className="ob-dots">{[0,1,2,3].map(i=><div key={i} className={`ob-dot ${i===obStep?"active":""}`}/>)}</div>
         {obStep===0&&<>
           <div className="ob-heading">Your private space to unwind and understand yourself</div>
-          <div className="ob-sub">Talk or write about your day. daylog listens, finds patterns, and gently helps you grow.</div>
+          <div className="ob-sub">Talk or write about your day. throughline listens, finds patterns, and gently helps you grow.</div>
           <div className="ob-features">
             <div className="ob-feature"><div className="ob-feature-icon">🎙</div><div className="ob-feature-text"><strong>Voice or text</strong>Just talk freely. No structure needed.</div></div>
             <div className="ob-feature"><div className="ob-feature-icon">✦</div><div className="ob-feature-text"><strong>Patterns over time</strong>See what drains you and what lights you up.</div></div>
@@ -684,7 +684,7 @@ const parsed=await analyzeEntry(text,subTodos,subLearned,subGratitude,session.us
   return(<><style>{STYLES}</style><div className="grain"/><div className="glow"/>
   <div className="app">
     <nav className="nav">
-      <div className="nav-logo">day<span>log</span></div>
+      <div className="nav-logo">through<span>line</span></div>
       <div className="nav-right">
         <div style={{display:"flex",justifyContent:"flex-end",alignItems:"center",width:"100%",marginBottom:6}}>
           {userName&&<div className="nav-greeting" style={{flex:1}}>Hey, {userName.split(" ")[0]}</div>}
