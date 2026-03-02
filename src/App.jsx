@@ -96,12 +96,12 @@ const STYLES = `
   .date-main { font-family:'Playfair Display',serif; font-size:34px; color:var(--cream); line-height:1.1; margin-top:4px; }
 
   /* ── MOOD ── */
-  .mood-row { display:flex; align-items:center; gap:8px; margin-bottom:20px; flex-wrap:wrap; }
-  .mood-label { font-size:12px; color:var(--text-muted); margin-right:4px; }
-  .mood-btn { width:38px; height:38px; border-radius:10px; border:1.5px solid var(--border); background:var(--surface); cursor:pointer; font-size:17px; display:flex; align-items:center; justify-content:center; transition:all 0.15s; }
+  .mood-row { display:flex; align-items:center; gap:6px; margin-bottom:20px; flex-wrap:nowrap; }
+  .mood-label { font-size:12px; color:var(--text-muted); margin-right:2px; white-space:nowrap; flex-shrink:0; }
+  .mood-btn { width:34px; height:34px; border-radius:10px; border:1.5px solid var(--border); background:var(--surface); cursor:pointer; font-size:16px; display:flex; align-items:center; justify-content:center; transition:all 0.15s; flex-shrink:0; }
   .mood-btn:hover { transform:scale(1.15); border-color:var(--text-muted); }
   .mood-btn.selected { transform:scale(1.18); border-color:var(--amber); background:var(--amber-dim); }
-  .mood-score-display { font-size:11px; color:var(--amber-soft); font-style:italic; margin-left:4px; }
+  .mood-score-display { font-size:11px; color:var(--amber-soft); font-style:italic; margin-left:2px; white-space:nowrap; }
 
   /* ── ENTRY ── */
   .entry-card { background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:28px; margin-bottom:20px; }
