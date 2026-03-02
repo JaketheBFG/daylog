@@ -679,7 +679,10 @@ export default function App() {
     <nav className="nav">
       <div className="nav-logo">day<span>log</span></div>
       <div className="nav-right">
-        {userName&&<div className="nav-greeting">Hey, {userName.split(" ")[0]}</div>}
+        <div style={{display:"flex",justifyContent:"flex-end",alignItems:"center",width:"100%",marginBottom:6}}>
+          {userName&&<div className="nav-greeting" style={{flex:1}}>Hey, {userName.split(" ")[0]}</div>}
+          <button className="signout-btn" onClick={handleSignOut}>Sign out</button>
+        </div>
         <div className="nav-tabs">
           {[
             {id:"today",  label:"Today"},
@@ -693,7 +696,6 @@ export default function App() {
             </button>
           ))}
         </div>
-        <button className="signout-btn" onClick={handleSignOut}>Sign out</button>
       </div>
     </nav>
 
