@@ -218,6 +218,17 @@ const STYLES = `
   .group-header-chevron { font-size:10px; color:var(--text-dim); transition:transform 0.2s; }
   .group-header-chevron.open { transform:rotate(90deg); }
   .group-header-line { flex:1; height:1px; background:var(--border); }
+  /* ── SUBSECTIONS ── */
+  .subsection-toggle { display:flex; align-items:center; gap:10px; padding:12px 0; cursor:pointer; border-top:1px solid var(--border); user-select:none; }
+  .subsection-toggle:first-of-type { margin-top:8px; }
+  .subsection-emoji { font-size:15px; }
+  .subsection-label { font-size:13px; color:var(--text-muted); flex:1; }
+  .subsection-chevron { font-size:10px; color:var(--text-dim); transition:transform 0.2s; }
+  .subsection-chevron.open { transform:rotate(90deg); }
+  .subsection-body { padding:8px 0 14px; animation:fadeUp 0.2s ease; }
+  .subsection-textarea { width:100%; background:var(--surface2); border:1px solid var(--border); border-radius:10px; padding:12px 14px; color:var(--text); font-family:'DM Sans',sans-serif; font-weight:300; font-size:14px; line-height:1.6; resize:none; outline:none; transition:border-color 0.2s; }
+  .subsection-textarea:focus { border-color:var(--amber); }
+  .subsection-textarea::placeholder { color:var(--text-dim); }
   .group-tasks { display:flex; flex-direction:column; gap:8px; }
 
   /* ── HABITS ── */
@@ -283,7 +294,8 @@ const OB_TIMES = [
   {emoji:"🌆",label:"Evening", sub:"Wind down and reflect",        value:"evening"},
   {emoji:"🌙",label:"Night",   sub:"Before sleep ritual",          value:"night"},
 ];
-
+const STRESS_PATTERNS = [{label:"Work meetings",pct:72},{label:"Commute",pct:58},{label:"Deadlines",pct:50},{label:"Social friction",pct:30}];
+const JOY_PATTERNS    = [{label:"Exercise",pct:80},{label:"Deep work",pct:75},{label:"Social time",pct:68},{label:"Cooking/food",pct:55}];
 const DEFAULT_GROUPS  = [{id:"work",name:"Work",color:"#7a9ec4"},{id:"errands",name:"Errands",color:"#c4a45a"},{id:"social",name:"Friends & Social",color:"#a47ac4"},{id:"health",name:"Health",color:"#6a9e78"}];
 
 function last28Days(){ return Array.from({length:28},(_,i)=>{ const d=new Date(); d.setDate(d.getDate()-(27-i)); return d.toISOString().split("T")[0]; }); }
@@ -296,7 +308,11 @@ async function callClaude(prompt,maxTokens=1000){
   const data=await res.json();
   return (data.content?.find(b=>b.type==="text")?.text||"{}").replace(/```json|```/g,"").trim();
 }
-async function analyzeEntry(text){ return JSON.parse(await callClaude(`Analyze this journal entry and respond ONLY with valid JSON:\n{"todos":["action item"],"stressTags":["2-4 word label"],"joyTags":["2-4 word label"],"insight":"One warm sentence."}\nEntry: "${text}"`)); }
+async function analyzeEntry(text,subTodos,subLearned,subGratitude){ 
+  const extra = [subTodos&&`TO-DOS SECTION: ${subTodos}`,subLearned&&`THINGS I LEARNED: ${subLearned}`,subGratitude&&`GRATITUDE: ${subGratitude}`].filter(Boolean).join("\n");
+  const fullText = extra ? `${text}\n\n${extra}` : text;
+  return JSON.parse(await callClaude(`Analyze this journal entry and respond ONLY with valid JSON. Extract todos PRIMARILY from the TO-DOS SECTION if present.\n{"todos":["action item"],"stressTags":["2-4 word label"],"joyTags":["2-4 word label"],"insight":"One warm sentence."}\nEntry:\n${fullText}`)); 
+}
 async function suggestGoals(entries){ return JSON.parse(await callClaude(`Suggest 3 personal growth goals based on these journal entries. Focus on happiness and wellbeing, NOT productivity.\n${entries.slice(0,5).map(e=>`${e.date}: ${e.text}`).join("\n")}\nRespond ONLY with valid JSON array:\n[{"title":"goal","why":"reason","icon":"emoji"}]`)); }
 async function generateMonthlySummary(entries, userName){ return JSON.parse(await callClaude(`Write a warm monthly summary for ${userName||"this person"} based on their journal entries this month.\nEntries:\n${entries.slice(0,20).map(e=>`${e.date}: ${e.text}`).join("\n\n")}\nRespond ONLY with valid JSON:\n{"summary":"2-3 sentence warm paragraph summarizing their month, patterns, and growth"}`,600)); }
 async function generateWeeklyDigest(entries,userName){ return JSON.parse(await callClaude(`Write a personal weekly reflection for ${userName||"this person"}.\nEntries:\n${entries.slice(0,7).map(e=>`${e.date} (mood ${e.mood||"?"}/5): ${e.text}`).join("\n\n")}\nRespond ONLY with valid JSON:\n{"headline":"evocative sentence","highlight":"best moment","pattern":"recurring observation","nudge":"one kind suggestion for next week"}`,800)); }
@@ -326,6 +342,10 @@ export default function App() {
   const [result,setResult]=useState(null);
   const [todos,setTodos]=useState([]);
   const [checkedTodos,setCheckedTodos]=useState({});
+  const [subTodos,setSubTodos]=useState("");
+  const [subLearned,setSubLearned]=useState("");
+  const [subGratitude,setSubGratitude]=useState("");
+  const [expandedSections,setExpandedSections]=useState({todos:false,learned:false,gratitude:false});
   const [entries,setEntries]=useState([]);
   const [recording,setRecording]=useState(false);
   const [todayMood,setTodayMood]=useState(null);
@@ -413,8 +433,6 @@ export default function App() {
   const today=new Date().toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"});
   const monthYear=new Date().toLocaleDateString("en-US",{month:"long",year:"numeric"});
   const moodForDay=(date)=>{ const e=entries.find(en=>en.date===date); return e?.mood||null; };
-  const STRESS_PATTERNS = (() => { const counts = {}; entries.forEach(e => e.stressTags?.forEach(t => { counts[t] = (counts[t]||0)+1; })); const total = entries.length || 1; return Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,5).map(([label,count])=>({ label, pct: Math.round((count/total)*100) })); })();
-const JOY_PATTERNS = (() => { const counts = {}; entries.forEach(e => e.joyTags?.forEach(t => { counts[t] = (counts[t]||0)+1; })); const total = entries.length || 1; return Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,5).map(([label,count])=>({ label, pct: Math.round((count/total)*100) })); })();
 
   // ── Auth actions ──
   const handleSignUp = async()=>{
@@ -498,7 +516,8 @@ const JOY_PATTERNS = (() => { const counts = {}; entries.forEach(e => e.joyTags?
     if(recording){ recognitionRef.current?.stop(); setRecording(false); return; }
     const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
     const r=new SR(); r.continuous=true; r.interimResults=true; r.lang="en-US";
-r.onresult=(e)=>{ let f=""; for(let i=e.resultIndex;i<e.results.length;i++) if(e.results[i].isFinal) f+=e.results[i][0].transcript+" "; if(f) setText(p=>p+f); };    r.onend=()=>setRecording(false); r.start(); recognitionRef.current=r; setRecording(true);
+    r.onresult=(e)=>{ let f=""; for(let i=0;i<e.results.length;i++) if(e.results[i].isFinal) f+=e.results[i][0].transcript+" "; if(f) setText(p=>p+f); };
+    r.onend=()=>setRecording(false); r.start(); recognitionRef.current=r; setRecording(true);
   };
 
   const weekDates=lastNDays(7);
@@ -610,6 +629,16 @@ r.onresult=(e)=>{ let f=""; for(let i=e.resultIndex;i<e.results.length;i++) if(e
       <div className="entry-card">
         <div className="entry-prompt">{preferredTime==="morning"?"What are you carrying into today?":"How was your day? Speak or write freely — no structure needed."}</div>
         <textarea className="entry-textarea" placeholder="Today I... the meeting went... I felt... I need to remember..." value={text} onChange={e=>setText(e.target.value)} rows={6}/>
+        {[{key:"todos",emoji:"📝",label:"To-dos",placeholder:"Things I need to do...",val:subTodos,set:setSubTodos},{key:"learned",emoji:"💡",label:"Things I learned",placeholder:"Something I picked up today...",val:subLearned,set:setSubLearned},{key:"gratitude",emoji:"🙏",label:"Gratitude",placeholder:"What I'm grateful for...",val:subGratitude,set:setSubGratitude}].map(s=>(
+          <div key={s.key}>
+            <div className="subsection-toggle" onClick={()=>setExpandedSections(p=>({...p,[s.key]:!p[s.key]}))}>
+              <span className="subsection-emoji">{s.emoji}</span>
+              <span className="subsection-label">{s.label}{s.val&&<span style={{color:"var(--amber-soft)",marginLeft:6}}>✦</span>}</span>
+              <span className={`subsection-chevron ${expandedSections[s.key]?"open":""}`}>▶</span>
+            </div>
+            {expandedSections[s.key]&&<div className="subsection-body"><textarea className="subsection-textarea" placeholder={s.placeholder} value={s.val} onChange={e=>s.set(e.target.value)} rows={3}/></div>}
+          </div>
+        ))}
         <div className="entry-footer">
           <span className="char-count">{text.length} characters</span>
           <div className="entry-actions">
@@ -703,9 +732,9 @@ r.onresult=(e)=>{ let f=""; for(let i=e.resultIndex;i<e.results.length;i++) if(e
         <p style={{marginBottom:12,fontSize:14,lineHeight:1.65}}>{entry.text.slice(0,180)}{entry.text.length>180?"...":""}</p>
         {(entry.stressTags?.length>0||entry.joyTags?.length>0)&&<div className="tags-row" style={{marginBottom:8}}>{entry.stressTags?.map((t,i)=><span key={i} className="tag tag-stress">↑ {t}</span>)}{entry.joyTags?.map((t,i)=><span key={i} className="tag tag-joy">✦ {t}</span>)}</div>}
         {entry.todos?.length>0&&<div style={{fontSize:12,color:"var(--text-muted)"}}>{entry.todos.length} action item{entry.todos.length>1?"s":""}</div>}
-        <div style={{display:"flex",justifyContent:"flex-end",marginTop:10}}><button onClick={async()=>{ if(window.confirm("Delete this entry?")){ await supabase.from("entries").delete().eq("id",entry.id); setEntries(p=>p.filter(e=>e.id!==entry.id)); }}} style={{background:"none",border:"1px solid var(--border)",borderRadius:8,padding:"4px 10px",fontSize:11,color:"var(--text-dim)",cursor:"pointer",fontFamily:"DM Sans,sans-serif"}}>Delete</button></div>
       </div>; })}
     </>}
 
   </div></>);
 }
+
