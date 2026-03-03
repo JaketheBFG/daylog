@@ -18,8 +18,7 @@ html, body { padding-top: 0; }
   .l-glow { position:fixed; width:800px; height:800px; border-radius:50%; background:radial-gradient(circle,rgba(200,136,42,0.07) 0%,transparent 70%); pointer-events:none; top:-300px; left:50%; transform:translateX(-50%); z-index:0; }
   
   /* NAV */
-.l-nav { position:fixed; top:0; left:0; right:0; z-index:50; padding:20px 40px; padding-top:max(20px, env(safe-area-inset-top)); display:flex; align-items:center; justify-content:space-between; background:rgba(14,12,10,0.8); backdrop-filter:blur(12px); border-bottom:1px solid rgba(46,42,37,0.5); }  .l-nav-logo { font-family:'Playfair Display',serif; font-size:20px; color:var(--cream); letter-spacing:-0.5px; text-decoration:none; }
-  .l-nav-logo span { color:var(--amber-soft); font-style:italic; }
+.l-nav { position:fixed; top:0; left:0; right:0; z-index:50; padding:20px 40px; padding-top:max(44px, env(safe-area-inset-top)); display:flex;  .l-nav-logo span { color:var(--amber-soft); font-style:italic; }
   .l-nav-cta { padding:9px 20px; border-radius:10px; background:var(--amber); color:#0e0c0a; font-family:'DM Sans',sans-serif; font-size:13px; font-weight:500; text-decoration:none; transition:all 0.2s; cursor:pointer; border:none; }
   .l-nav-cta:hover { background:var(--amber-soft); transform:translateY(-1px); }
 
