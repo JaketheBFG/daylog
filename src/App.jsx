@@ -470,8 +470,7 @@ export default function App() {
   };
   const handleForgotPassword = async()=>{
     setAuthSubmitting(true); setAuthError(""); setAuthSuccess("");
-    const {error}=await supabase.auth.resetPasswordForEmail(authEmail,{redirectTo:"https://throughline-puce.vercel.app/reset-password"});
-    if(error) setAuthError(error.message);
+const {error}=await supabase.auth.resetPasswordForEmail(authEmail,{redirectTo:"https://www.gethroughline.com/app"});    if(error) setAuthError(error.message);
     else setAuthSuccess("Check your email for a reset link!");
     setAuthSubmitting(false);
   };
