@@ -1,5 +1,8 @@
 {
   "appId": "com.throughline.app",
   "appName": "Throughline",
-  "webDir": "dist"
+  "webDir": "dist",
+  "ios": {
+    "contentInset": "always"
+  }
 }
