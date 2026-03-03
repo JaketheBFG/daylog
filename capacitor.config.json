@@ -3,6 +3,7 @@
   "appName": "Throughline",
   "webDir": "dist",
   "ios": {
-    "contentInset": "always"
+    "contentInset": "always",
+    "scrollEnabled": false
   }
 }
