@@ -4,6 +4,6 @@
   "webDir": "dist",
   "ios": {
     "contentInset": "always",
-    "scrollEnabled": false
+    "allowsLinkPreview": false
   }
 }
