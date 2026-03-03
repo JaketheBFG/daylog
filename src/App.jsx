@@ -415,7 +415,8 @@ export default function App() {
       }
     });
     const hash = window.location.hash;
-    if(hash.includes("type=recovery")) setAuthMode("reset");
+const query = window.location.search;
+if(hash.includes("type=recovery") || query.includes("type=recovery")) setAuthMode("reset");
     const {data:{subscription}}=supabase.auth.onAuthStateChange((event,session)=>{
       if(event==="PASSWORD_RECOVERY"){ setAuthMode("reset"); return; }
       setSession(session);
@@ -470,7 +471,7 @@ export default function App() {
   };
   const handleForgotPassword = async()=>{
     setAuthSubmitting(true); setAuthError(""); setAuthSuccess("");
-const {error}=await supabase.auth.resetPasswordForEmail(authEmail,{redirectTo:"https://www.gethroughline.com/app"});    if(error) setAuthError(error.message);
+const {error}=await supabase.auth.resetPasswordForEmail(authEmail,{redirectTo:"https://www.gethroughline.com/app?type=recovery"});    if(error) setAuthError(error.message);
     else setAuthSuccess("Check your email for a reset link!");
     setAuthSubmitting(false);
   };
