@@ -129,8 +129,10 @@ export default function Landing() {
       <style>{LANDING_STYLES}</style>
       <div className="l-glow"/>
 
+      {/* SAFE AREA SPACER */}
+      <div style={{height:"env(safe-area-inset-top, 44px)", background:"rgba(14,12,10,0.8)", position:"fixed", top:0, left:0, right:0, zIndex:51}}/>
       {/* NAV */}
-      <nav className="l-nav">
+      <nav className="l-nav" style={{top:"env(safe-area-inset-top, 44px)"}}>
         <a href="/" className="l-nav-logo">through<span>line</span></a>
         <a href="/app" className="l-nav-cta">Start journaling →</a>
       </nav>
