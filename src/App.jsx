@@ -19,8 +19,7 @@ const STYLES = `
   body { background:var(--bg); color:var(--text); font-family:'DM Sans',sans-serif; font-weight:300; min-height:100vh; overflow-x:hidden; display:flex; justify-content:center; }
   .grain { position:fixed; inset:0; pointer-events:none; z-index:100; opacity:0.03; background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E"); }
   .glow { position:fixed; width:600px; height:600px; border-radius:50%; background:radial-gradient(circle,rgba(200,136,42,0.06) 0%,transparent 70%); pointer-events:none; top:-200px; left:50%; transform:translateX(-50%); }
-  .app { max-width:720px; width:100%; padding:0 24px 80px; }
-  @keyframes fadeUp { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:none} }
+.app { max-width:720px; width:100%; padding:0 24px 80px; overflow-x:hidden; }  @keyframes fadeUp { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:none} }
   @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
   @keyframes dotBounce { 0%,80%,100%{transform:scale(0.6);opacity:0.4} 40%{transform:scale(1);opacity:1} }
   @keyframes slideIn { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:none} }
@@ -281,6 +280,14 @@ const STYLES = `
   .hg-section-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:20px; padding-bottom:12px; border-bottom:1px solid var(--border); }
   .hg-section-title { font-family:'Playfair Display',serif; font-size:22px; color:var(--cream); }
   .hg-section-sub { font-size:12px; color:var(--text-muted); font-style:italic; margin-top:3px; }
+
+  @media (max-width:600px) {
+    .app { padding:0 16px 80px; overflow-x:hidden; }
+    .task-group-select { display:none; }
+    .add-task-row .task-group-select { display:block; width:100%; }
+    .group-bar { display:none; }
+    .task-item { max-width:100%; }
+  }
 `;
 
 const MOODS = [
