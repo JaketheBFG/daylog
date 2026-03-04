@@ -184,12 +184,11 @@ const STYLES = `
   .tasks-filters { display:flex; gap:4px; }
   .filter-pill { padding:5px 12px; border-radius:20px; font-size:12px; cursor:pointer; border:1px solid var(--border); background:transparent; color:var(--text-muted); font-family:'DM Sans',sans-serif; transition:all 0.15s; }
   .filter-pill.active { background:var(--surface2); color:var(--text); border-color:var(--text-dim); }
-  .add-task-row { display:flex; gap:8px; margin-bottom:20px; }
+  .add-task-row { display:flex; gap:8px; margin-bottom:20px; flex-wrap:wrap; }
   .add-task-input { flex:1; background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:11px 14px; color:var(--text); font-family:'DM Sans',sans-serif; font-size:14px; font-weight:300; outline:none; transition:border-color 0.2s; }
   .add-task-input::placeholder { color:var(--text-dim); }
   .add-task-input:focus { border-color:var(--amber); }
-  .task-item { display:flex; align-items:flex-start; gap:10px; background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:13px 14px; margin-bottom:8px; transition:opacity 0.2s; animation:fadeUp 0.25s ease; }
-  .task-item.done-item { opacity:0.45; }
+.task-item { display:flex; align-items:flex-start; gap:10px; background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:13px 14px; margin-bottom:8px; transition:opacity 0.2s; animation:fadeUp 0.25s ease; min-width:0; overflow:hidden; }  .task-item.done-item { opacity:0.45; }
   .task-content { flex:1; min-width:0; }
   .task-text { font-size:14px; line-height:1.5; }
   .task-text.done { text-decoration:line-through; color:var(--text-muted); }
@@ -715,8 +714,10 @@ const habitDays=isMobile?lastNDays(7):last28Days();
         <div className="date-label">{preferredTime?`${preferredTime} reflection`:"end of day reflection"}</div>
         <div style={{display:"flex",alignItems:"center",gap:12}}>
    <div className="date-main">{formatDate(selectedDate)}</div>
-          <input type="date" value={selectedDate} onChange={e=>setSelectedDate(e.target.value)} style={{background:"var(--surface2)",border:"1px solid var(--border)",borderRadius:8,padding:"6px 10px",color:"var(--text-muted)",fontFamily:"DM Sans,sans-serif",fontSize:12,outline:"none",cursor:"pointer"}} max={todayStr}/>
-        </div>
+<div style={{position:"relative"}}>
+  <div style={{background:"var(--surface2)",border:"1px solid var(--border)",borderRadius:8,padding:"6px 10px",color:"var(--text-muted)",fontFamily:"DM Sans,sans-serif",fontSize:12,cursor:"pointer"}}>📅 {selectedDate}</div>
+  <input type="date" value={selectedDate} onChange={e=>setSelectedDate(e.target.value)} max={todayStr} style={{position:"absolute",inset:0,opacity:0,width:"100%",height:"100%",cursor:"pointer"}}/>
+</div>        </div>
       </div>
       <div className="mood-row">
         <span className="mood-label">How are you feeling?</span>
