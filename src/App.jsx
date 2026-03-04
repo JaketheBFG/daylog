@@ -369,6 +369,7 @@ export default function App() {
   const [dbLoading,setDbLoading]=useState(true);
   const recognitionRef=useRef(null);
   const todayStr=new Date().toISOString().split("T")[0];
+const [selectedDate,setSelectedDate]=useState(todayStr);
 
   // Tasks
   const [allTasks,setAllTasks]=useState([]);
@@ -497,7 +498,7 @@ const {error}=await supabase.auth.resetPasswordForEmail(authEmail,{redirectTo:"h
   // ── Task helpers ──
   const addManualTask=async()=>{
     if(!newTaskText.trim()||!session)return;
-    const t={text:newTaskText.trim(),done:false,source:"manual",added_date:todayStr,group_id:newTaskGroup||null,user_id:session.user.id};
+    const t={text:newTaskText.trim(),done:false,source:"manual",added_date:selectedDate,group_id:newTaskGroup||null,user_id:session.user.id};
     const {data}=await supabase.from("tasks").insert(t).select().single();
     if(data) setAllTasks(p=>[...p,{...data,groupId:data.group_id,addedDate:data.added_date}]);
     setNewTaskText("");
@@ -529,11 +530,11 @@ const handleGenerateDigest=async()=>{ setGeneratingDigest(true); try{ const d=aw
     setLoading(true); setResult(null);
     try{
 const parsed=await analyzeEntry(text,subTodos,subLearned,subGratitude,session.user.id);      setResult(parsed); setTodos(parsed.todos||[]);
-      const entry={date:todayStr,mood:todayMood,text,todos:parsed.todos||[],stress_tags:parsed.stressTags||[],joy_tags:parsed.joyTags||[],insight:parsed.insight||"",user_id:session.user.id};
+      const entry={date:selectedDate,mood:todayMood,text,todos:parsed.todos||[],stress_tags:parsed.stressTags||[],joy_tags:parsed.joyTags||[],insight:parsed.insight||"",user_id:session.user.id};
       const {data}=await supabase.from("entries").insert(entry).select().single();
       if(data) setEntries(p=>[{...data,stressTags:data.stress_tags||[],joyTags:data.joy_tags||[]},...p]);
       if(parsed.todos?.length){
-        const newTasks=parsed.todos.map(t=>({text:t,done:false,source:"entry",source_date:todayStr,added_date:todayStr,group_id:null,user_id:session.user.id}));
+        const newTasks=parsed.todos.map(t=>({text:t,done:false,source:"entry",source_date:selectedDate,added_date:selectedDate,group_id:null,user_id:session.user.id}));
         const {data:td}=await supabase.from("tasks").insert(newTasks).select();
         if(td) setAllTasks(p=>[...p,...td.map(t=>({...t,groupId:t.group_id,sourceDate:t.source_date,addedDate:t.added_date}))]);
       }
@@ -712,7 +713,10 @@ const habitDays=isMobile?lastNDays(7):last28Days();
     {tab==="today"&&<>
       <div className="date-header">
         <div className="date-label">{preferredTime?`${preferredTime} reflection`:"end of day reflection"}</div>
-        <div className="date-main">{today}</div>
+        <div style={{display:"flex",alignItems:"center",gap:12}}>
+   <div className="date-main">{formatDate(selectedDate)}</div>
+          <input type="date" value={selectedDate} onChange={e=>setSelectedDate(e.target.value)} style={{background:"var(--surface2)",border:"1px solid var(--border)",borderRadius:8,padding:"6px 10px",color:"var(--text-muted)",fontFamily:"DM Sans,sans-serif",fontSize:12,outline:"none",cursor:"pointer"}} max={todayStr}/>
+        </div>
       </div>
       <div className="mood-row">
         <span className="mood-label">How are you feeling?</span>
