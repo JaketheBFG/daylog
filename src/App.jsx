@@ -233,8 +233,8 @@ const STYLES = `
 
   /* ── HABITS ── */
   .habit-grid-wrap { overflow-x:auto; padding-bottom:4px; }
-  .habit-row { display:grid; grid-template-columns:110px repeat(28,1fr); align-items:center; gap:3px; margin-bottom:5px; }
-  .habit-name-cell { font-size:12px; color:var(--text-muted); padding-right:8px; text-align:right; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.habit-row { display:grid; grid-template-columns:110px repeat(28,1fr); align-items:center; gap:3px; margin-bottom:5px; }
+@media (max-width:600px) { .habit-row { grid-template-columns:80px repeat(7,1fr); } .habit-day-labels { grid-template-columns:80px repeat(7,1fr); } }  .habit-name-cell { font-size:12px; color:var(--text-muted); padding-right:8px; text-align:right; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .habit-dot { width:100%; aspect-ratio:1; border-radius:3px; background:var(--surface2); border:1px solid var(--border); cursor:pointer; transition:all 0.12s; }
   .habit-dot:hover { border-color:var(--text-dim); }
   .habit-dot.checked { border-color:transparent; }
@@ -551,7 +551,9 @@ const parsed=await analyzeEntry(text,subTodos,subLearned,subGratitude,session.us
     r.onend=()=>setRecording(false); r.start(); recognitionRef.current=r; setRecording(true);
   };
 
-  const weekDates=lastNDays(7);
+ const weekDates=lastNDays(7);
+const isMobile=window.innerWidth<=600;
+const habitDays=isMobile?lastNDays(7):last28Days();
 
   // ── Loading screen ──
   if(authLoading) return(<><style>{STYLES}</style><div className="grain"/><div className="glow"/><div className="auth-wrap"><div style={{color:"var(--text-muted)",fontStyle:"italic",fontSize:14}}>Loading...</div></div></>);
@@ -655,8 +657,8 @@ const parsed=await analyzeEntry(text,subTodos,subLearned,subGratitude,session.us
         <button className="btn btn-ghost" style={{padding:"6px 14px",fontSize:12}} onClick={()=>setAddingHabit(v=>!v)}>{addingHabit?"Cancel":"+ Add habit"}</button>
       </div>
       <div className="habit-grid-wrap">
-        <div className="habit-day-labels"><div/>{last28Days().map((d,i)=><div key={d} className="habit-day-label">{i===0||new Date(d+"T12:00:00").getDate()===1?new Date(d+"T12:00:00").toLocaleDateString("en-US",{month:"short",day:"numeric"}).replace(" ",""):new Date(d+"T12:00:00").getDate()%7===1?new Date(d+"T12:00:00").getDate():""}</div>)}</div>
-        {habits.map(h=>{ const streak=habitStreak(h); return <div key={h.id} className="habit-row-wrap"><div style={{flex:1}}><div className="habit-row"><div className="habit-name-cell" title={h.name}>{h.name}</div>{last28Days().map(d=><div key={d} className={`habit-dot ${h.checked[d]?"checked":""}`} style={h.checked[d]?{background:h.color}:{}} onClick={()=>toggleHabit(h.id,d)} title={d}/>)}</div>{streak>1&&<div style={{paddingLeft:118,marginTop:-2,marginBottom:4}}><span className="habit-streak-label">🔥 {streak}-day streak</span></div>}</div><button className="habit-del" onClick={()=>deleteHabit(h.id)}>×</button></div>; })}
+        <div className="habit-day-labels"><div/>{habitDays.map((d,i)=><div key={d} className="habit-day-label">{i===0||new Date(d+"T12:00:00").getDate()===1?new Date(d+"T12:00:00").toLocaleDateString("en-US",{month:"short",day:"numeric"}).replace(" ",""):new Date(d+"T12:00:00").getDate()%7===1?new Date(d+"T12:00:00").getDate():""}</div>)}</div>
+        {habits.map(h=>{ const streak=habitStreak(h); return <div key={h.id} className="habit-row-wrap"><div style={{flex:1}}><div className="habit-row"><div className="habit-name-cell" title={h.name}>{h.name}</div>{habitDays.map(d=><div key={d} className={`habit-dot ${h.checked[d]?"checked":""}`} style={h.checked[d]?{background:h.color}:{}} onClick={()=>toggleHabit(h.id,d)} title={d}/>)}</div>{streak>1&&<div style={{paddingLeft:118,marginTop:-2,marginBottom:4}}><span className="habit-streak-label">🔥 {streak}-day streak</span></div>}</div><button className="habit-del" onClick={()=>deleteHabit(h.id)}>×</button></div>; })}
         {habits.length===0&&<div className="empty-state" style={{padding:"20px 0"}}>No habits yet — add one below.</div>}
       </div>
       {addingHabit&&<><div className="add-habit-row"><input autoFocus className="add-habit-input" placeholder="Habit name (e.g. Morning walk, Read 20 min)" value={newHabitName} onChange={e=>setNewHabitName(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")addHabit();if(e.key==="Escape")setAddingHabit(false);}}/><button className="btn btn-primary" onClick={addHabit} disabled={!newHabitName.trim()}>Add</button></div><div className="habit-color-pick"><span style={{fontSize:11,color:"var(--text-dim)"}}>Colour:</span>{HABIT_COLORS.map(c=><div key={c} className={`habit-color-swatch ${newHabitColor===c?"selected":""}`} style={{background:c}} onClick={()=>setNewHabitColor(c)}/>)}</div></>}
