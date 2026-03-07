@@ -9,7 +9,7 @@ createRoot(document.getElementById('root')).render(
   <StrictMode>
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={<Landing />} />
+        <Route path="/" element={window.Capacitor ? <App /> : <Landing />} />
         <Route path="/app" element={<App />} />
       </Routes>
     </BrowserRouter>
