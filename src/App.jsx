@@ -793,9 +793,7 @@ const habitDays=isMobile?lastNDays(7):last28Days();
         </div>
         <select className="task-group-select" value={newTaskGroup} onChange={e=>setNewTaskGroup(e.target.value)} style={{width:"100%",padding:"10px 12px"}}><option value="">No group</option>{groups.map(g=><option key={g.id} value={g.id}>{g.name}</option>)}</select>
       </div>
-      <div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:12,alignItems:"center"}}>
-        <span style={{fontSize:11,color:"var(--text-dim)",letterSpacing:"0.5px",width:"100%"}}>GROUPS</span>
-        {groups.map(g=>{ const cnt=allTasks.filter(t=>t.groupId===g.id&&!t.done).length; return <div key={g.id} className="group-chip" style={{borderColor:g.color+"55"}}><span className="chip-dot" style={{background:g.color}}/><span style={{color:"var(--text)"}}>{g.name}</span>{cnt>0&&<span className="chip-count">{cnt}</span>}<button className="group-chip-del" onClick={()=>deleteGroup(g.id)}>×</button></div>; })}
+      <div style={{marginBottom:12}}>
         {!addingGroup&&<button className="add-group-btn" onClick={()=>setAddingGroup(true)}>+ New group</button>}
       </div>
       {addingGroup&&<div className="new-group-row"><input ref={newGroupInputRef} className="new-group-input" placeholder="Group name" value={newGroupName} onChange={e=>setNewGroupName(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")addGroup();if(e.key==="Escape"){setAddingGroup(false);setNewGroupName("");}}}/><button className="btn btn-primary" onClick={addGroup} disabled={!newGroupName.trim()}>Create</button><button className="btn btn-ghost" onClick={()=>{setAddingGroup(false);setNewGroupName("");}}>Cancel</button></div>}
