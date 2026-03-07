@@ -786,13 +786,15 @@ const habitDays=isMobile?lastNDays(7):last28Days();
     {/* ── TASKS ── */}
     {tab==="tasks"&&<>
       <div className="date-header"><div className="date-label">running list</div><div className="date-main">Tasks</div></div>
-      <div className="add-task-row">
-        <input className="add-task-input" placeholder="Add a task..." value={newTaskText} onChange={e=>setNewTaskText(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addManualTask()}/>
-        <select className="task-group-select" value={newTaskGroup} onChange={e=>setNewTaskGroup(e.target.value)} style={{padding:"10px"}}><option value="">No group</option>{groups.map(g=><option key={g.id} value={g.id}>{g.name}</option>)}</select>
-        <button className="btn btn-primary" onClick={addManualTask} disabled={!newTaskText.trim()}>Add</button>
+      <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:16}}>
+        <div style={{display:"flex",gap:8}}>
+          <input className="add-task-input" style={{flex:1,minWidth:0}} placeholder="Add a task..." value={newTaskText} onChange={e=>setNewTaskText(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addManualTask()}/>
+          <button className="btn btn-primary" style={{flexShrink:0,whiteSpace:"nowrap"}} onClick={addManualTask} disabled={!newTaskText.trim()}>Add</button>
+        </div>
+        <select className="task-group-select" value={newTaskGroup} onChange={e=>setNewTaskGroup(e.target.value)} style={{width:"100%",padding:"10px 12px"}}><option value="">No group</option>{groups.map(g=><option key={g.id} value={g.id}>{g.name}</option>)}</select>
       </div>
-      <div className="group-bar">
-        <span style={{fontSize:11,color:"var(--text-dim)",letterSpacing:"0.5px",marginRight:4}}>GROUPS</span>
+      <div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:12,alignItems:"center"}}>
+        <span style={{fontSize:11,color:"var(--text-dim)",letterSpacing:"0.5px",width:"100%"}}>GROUPS</span>
         {groups.map(g=>{ const cnt=allTasks.filter(t=>t.groupId===g.id&&!t.done).length; return <div key={g.id} className="group-chip" style={{borderColor:g.color+"55"}}><span className="chip-dot" style={{background:g.color}}/><span style={{color:"var(--text)"}}>{g.name}</span>{cnt>0&&<span className="chip-count">{cnt}</span>}<button className="group-chip-del" onClick={()=>deleteGroup(g.id)}>×</button></div>; })}
         {!addingGroup&&<button className="add-group-btn" onClick={()=>setAddingGroup(true)}>+ New group</button>}
       </div>
@@ -803,7 +805,7 @@ const habitDays=isMobile?lastNDays(7):last28Days();
       </div>
       {filteredTasks.length===0&&<div className="empty-state">{taskFilter==="open"?"All clear — nothing left to do.":"Nothing here yet."}</div>}
       {(()=>{
-        const TI=({task})=><div className={`task-item ${task.done?"done-item":""}`}><div className={`todo-check ${task.done?"done":""}`} onClick={()=>toggleTask(task.id)}/><div className="task-content"><div className={`task-text ${task.done?"done":""}`}>{task.text}</div><div className="task-meta"><span className="task-source">{task.source==="entry"?`From ${task.sourceDate} entry`:"Added manually"}</span></div></div><select className="task-group-select" value={task.groupId||""} onChange={e=>setTaskGroup(task.id,e.target.value)} style={{marginRight:4}}><option value="">Ungrouped</option>{groups.map(g=><option key={g.id} value={g.id}>{g.name}</option>)}</select><button className="task-delete" onClick={()=>deleteTask(task.id)}>×</button></div>;
+        const TI=({task})=><div className={`task-item ${task.done?"done-item":""}`}><div className={`todo-check ${task.done?"done":""}`} onClick={()=>toggleTask(task.id)}/><div className="task-content"><div className={`task-text ${task.done?"done":""}`}>{task.text}</div><div className="task-meta"><span className="task-source">{task.source==="entry"?`From ${task.sourceDate} entry`:"Added manually"}</span></div></div><button className="task-delete" onClick={()=>deleteTask(task.id)}>×</button></div>;
         const sections=[...groups.map(g=>({id:g.id,name:g.name,color:g.color,tasks:filteredTasks.filter(t=>t.groupId===g.id)})),{id:"__ug__",name:"Ungrouped",color:"var(--text-dim)",tasks:filteredTasks.filter(t=>!t.groupId)}].filter(s=>s.tasks.length>0);
         return sections.map(s=>{ const col=collapsedGroups[s.id]; return <div key={s.id} className="group-section"><div className="group-header" onClick={()=>toggleGroupCollapse(s.id)}><span className="group-header-dot" style={{background:s.color}}/><span className="group-header-name">{s.name}</span><span className="group-header-count">{s.tasks.length}</span><span className={`group-header-chevron ${col?"":"open"}`}>▶</span><span className="group-header-line"/></div>{!col&&<div className="group-tasks">{s.tasks.map(t=><TI key={t.id} task={t}/>)}</div>}</div>; });
       })()}
