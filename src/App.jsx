@@ -549,13 +549,36 @@ const parsed=await analyzeEntry(text,subTodos,subLearned,subGratitude,session.us
   };
 
   // ── Voice ──
-  const toggleVoice=()=>{
-    if(!("webkitSpeechRecognition" in window)&&!("SpeechRecognition" in window)){ alert("Voice input not supported. Try Chrome."); return; }
-    if(recording){ recognitionRef.current?.stop(); setRecording(false); return; }
-    const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
-    const r=new SR(); r.continuous=true; r.interimResults=true; r.lang="en-US";
-    r.onresult=(e)=>{ let f=""; for(let i=0;i<e.results.length;i++) if(e.results[i].isFinal) f+=e.results[i][0].transcript+" "; if(f) setText(p=>p+f); };
-    r.onend=()=>setRecording(false); r.start(); recognitionRef.current=r; setRecording(true);
+  const toggleVoice=async()=>{
+    if(recording){
+      if(window.Capacitor){
+        const {SpeechRecognition}=await import("@capacitor-community/speech-recognition");
+        await SpeechRecognition.stop();
+      } else {
+        recognitionRef.current?.stop();
+      }
+      setRecording(false); return;
+    }
+    if(window.Capacitor){
+      const {SpeechRecognition}=await import("@capacitor-community/speech-recognition");
+      const {available}=await SpeechRecognition.available();
+      if(!available){ alert("Speech recognition not available on this device."); return; }
+      await SpeechRecognition.requestPermissions();
+      await SpeechRecognition.start({
+        language:"en-US", maxDuration:60, partialResults:true,
+        popup:false
+      });
+      SpeechRecognition.addListener("partialResults",(data)=>{
+        if(data.matches&&data.matches.length>0) setText(data.matches[0]);
+      });
+      setRecording(true);
+    } else {
+      if(!("webkitSpeechRecognition" in window)&&!("SpeechRecognition" in window)){ alert("Voice input not supported. Try Chrome."); return; }
+      const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+      const r=new SR(); r.continuous=true; r.interimResults=true; r.lang="en-US";
+      r.onresult=(e)=>{ let f=""; for(let i=0;i<e.results.length;i++) if(e.results[i].isFinal) f+=e.results[i][0].transcript+" "; if(f) setText(p=>p+f); };
+      r.onend=()=>setRecording(false); r.start(); recognitionRef.current=r; setRecording(true);
+    }
   };
 
  const weekDates=lastNDays(7);
