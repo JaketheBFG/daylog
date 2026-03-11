@@ -560,8 +560,11 @@ const parsed=await analyzeEntry(text,subTodos,subLearned,subGratitude,session.us
       setRecording(false); return;
     }
     if(window.Capacitor){
+      console.log("Capacitor detected, loading speech plugin...");
       const {SpeechRecognition}=await import("@capacitor-community/speech-recognition");
+      console.log("Plugin loaded:", SpeechRecognition);
       const {available}=await SpeechRecognition.available();
+      console.log("Available:", available);
       if(!available){ alert("Speech recognition not available on this device."); return; }
       await SpeechRecognition.requestPermissions();
       await SpeechRecognition.start({
