@@ -552,7 +552,7 @@ const parsed=await analyzeEntry(text,subTodos,subLearned,subGratitude,session.us
   const toggleVoice=async()=>{
     if(recording){
       if(window.Capacitor){
-        const {SpeechRecognition}=await import("@capacitor-community/speech-recognition");
+        const {SpeechRecognition}=await import("@capacitor/speech-recognition");
         await SpeechRecognition.stop();
       } else {
         recognitionRef.current?.stop();
@@ -561,7 +561,7 @@ const parsed=await analyzeEntry(text,subTodos,subLearned,subGratitude,session.us
     }
     if(window.Capacitor){
       console.log("Capacitor detected, loading speech plugin...");
-      const {SpeechRecognition}=await import("@capacitor-community/speech-recognition");
+      const {SpeechRecognition}=await import("@capacitor/speech-recognition");
       console.log("Plugin loaded:", SpeechRecognition);
       const {available}=await SpeechRecognition.available();
       console.log("Available:", available);
