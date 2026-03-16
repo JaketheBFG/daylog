@@ -549,39 +549,19 @@ const parsed=await analyzeEntry(text,subTodos,subLearned,subGratitude,session.us
   };
 
   // ── Voice ──
-  const toggleVoice=async()=>{
-    if(recording){
-      if(window.Capacitor){
-        const {SpeechRecognition}=await import("@capacitor/speech-recognition");
-        await SpeechRecognition.stop();
-      } else {
-        recognitionRef.current?.stop();
-      }
-      setRecording(false); return;
-    }
-    if(window.Capacitor){
-      console.log("Capacitor detected, loading speech plugin...");
-      const {SpeechRecognition}=await import("@capacitor/speech-recognition");
-      console.log("Plugin loaded:", SpeechRecognition);
-      const {available}=await SpeechRecognition.available();
-      console.log("Available:", available);
-      if(!available){ alert("Speech recognition not available on this device."); return; }
-      await SpeechRecognition.requestPermissions();
-      await SpeechRecognition.start({
-        language:"en-US", maxDuration:60, partialResults:true,
-        popup:false
-      });
-      SpeechRecognition.addListener("partialResults",(data)=>{
-        if(data.matches&&data.matches.length>0) setText(data.matches[0]);
-      });
-      setRecording(true);
-    } else {
-      if(!("webkitSpeechRecognition" in window)&&!("SpeechRecognition" in window)){ alert("Voice input not supported. Try Chrome."); return; }
-      const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
-      const r=new SR(); r.continuous=true; r.interimResults=true; r.lang="en-US";
-      r.onresult=(e)=>{ let f=""; for(let i=0;i<e.results.length;i++) if(e.results[i].isFinal) f+=e.results[i][0].transcript+" "; if(f) setText(p=>p+f); };
-      r.onend=()=>setRecording(false); r.start(); recognitionRef.current=r; setRecording(true);
-    }
+  const toggleVoice=()=>{
+    if(recording){ recognitionRef.current?.stop(); setRecording(false); return; }
+    const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+    if(!SR){ alert("Voice input not supported on this device."); return; }
+    const r=new SR(); 
+    r.continuous=true; 
+    r.interimResults=true; 
+    r.lang="en-US";
+    r.onresult=(e)=>{ let f=""; for(let i=0;i<e.results.length;i++) if(e.results[i].isFinal) f+=e.results[i][0].transcript+" "; if(f) setText(p=>p+f); };
+    r.onend=()=>setRecording(false); 
+    r.start(); 
+    recognitionRef.current=r; 
+    setRecording(true);
   };
 
  const weekDates=lastNDays(7);
@@ -747,10 +727,7 @@ const habitDays=isMobile?lastNDays(7):last28Days();
         <div className="date-label">{preferredTime?`${preferredTime} reflection`:"end of day reflection"}</div>
         <div style={{display:"flex",alignItems:"center",gap:12}}>
    <div className="date-main">{formatDate(selectedDate)}</div>
-<div style={{position:"relative"}}>
-  <div style={{background:"var(--surface2)",border:"1px solid var(--border)",borderRadius:8,padding:"6px 10px",color:"var(--text-muted)",fontFamily:"DM Sans,sans-serif",fontSize:12,cursor:"pointer"}}>📅 {selectedDate}</div>
-  <input type="date" value={selectedDate} onChange={e=>setSelectedDate(e.target.value)} max={todayStr} style={{position:"absolute",inset:0,opacity:0,width:"100%",height:"100%",cursor:"pointer"}}/>
-</div>        </div>
+<input type="date" value={selectedDate} onChange={e=>setSelectedDate(e.target.value)} max={todayStr} style={{background:"var(--surface2)",border:"1px solid var(--border)",borderRadius:8,padding:"6px 10px",color:"var(--text-muted)",fontFamily:"DM Sans,sans-serif",fontSize:12,outline:"none",cursor:"pointer"}}/>        </div>
       </div>
       <div className="mood-row">
         <span className="mood-label">How are you feeling?</span>
