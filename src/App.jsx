@@ -307,8 +307,6 @@ const OB_TIMES = [
   {emoji:"🌙",label:"Night",   sub:"Before sleep ritual",          value:"night"},
 ];
 
-const maxStress = Math.max(1,...Object.values(stressTagCounts));
-const maxJoy = Math.max(1,...Object.values(joyTagCounts));
 const DEFAULT_GROUPS  = [{id:"work",name:"Work",color:"#7a9ec4"},{id:"errands",name:"Errands",color:"#c4a45a"},{id:"social",name:"Friends & Social",color:"#a47ac4"},{id:"health",name:"Health",color:"#6a9e78"}];
 
 function last28Days(){ return Array.from({length:28},(_,i)=>{ const d=new Date(); d.setDate(d.getDate()-(27-i)); return d.toISOString().split("T")[0]; }); }
