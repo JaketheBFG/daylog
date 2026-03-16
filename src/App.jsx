@@ -306,12 +306,7 @@ const OB_TIMES = [
   {emoji:"🌆",label:"Evening", sub:"Wind down and reflect",        value:"evening"},
   {emoji:"🌙",label:"Night",   sub:"Before sleep ritual",          value:"night"},
 ];
-const stressTagCounts = {};
-const joyTagCounts = {};
-entries.forEach(e => {
-  (e.stressTags||[]).forEach(t => { stressTagCounts[t]=(stressTagCounts[t]||0)+1; });
-  (e.joyTags||[]).forEach(t => { joyTagCounts[t]=(joyTagCounts[t]||0)+1; });
-});
+
 const maxStress = Math.max(1,...Object.values(stressTagCounts));
 const maxJoy = Math.max(1,...Object.values(joyTagCounts));
 const DEFAULT_GROUPS  = [{id:"work",name:"Work",color:"#7a9ec4"},{id:"errands",name:"Errands",color:"#c4a45a"},{id:"social",name:"Friends & Social",color:"#a47ac4"},{id:"health",name:"Health",color:"#6a9e78"}];
