@@ -524,6 +524,11 @@ const {error}=await supabase.auth.resetPasswordForEmail(authEmail,{redirectTo:"h
   const setTaskGroup=async(id,gid)=>{ setAllTasks(p=>p.map(t=>t.id===id?{...t,groupId:gid||null}:t)); await supabase.from("tasks").update({group_id:gid||null}).eq("id",id); };
   const toggleGroupCollapse=(gid)=>setCollapsedGroups(p=>({...p,[gid]:!p[gid]}));
   const filteredTasks=allTasks.filter(t=>taskFilter==="open"?!t.done:taskFilter==="done"?t.done:true);
+  const stressTagCounts={};const joyTagCounts={};
+  entries.forEach(e=>{(e.stressTags||[]).forEach(t=>{stressTagCounts[t]=(stressTagCounts[t]||0)+1;});(e.joyTags||[]).forEach(t=>{joyTagCounts[t]=(joyTagCounts[t]||0)+1;});});
+  const maxStress=Math.max(1,...Object.values(stressTagCounts));const maxJoy=Math.max(1,...Object.values(joyTagCounts));
+  const STRESS_PATTERNS=Object.entries(stressTagCounts).sort((a,b)=>b[1]-a[1]).slice(0,6).map(([label,count])=>({label,pct:Math.round(count/maxStress*100)}));
+  const JOY_PATTERNS=Object.entries(joyTagCounts).sort((a,b)=>b[1]-a[1]).slice(0,6).map(([label,count])=>({label,pct:Math.round(count/maxJoy*100)}));
 
   // ── Habit helpers ──
   const toggleHabit=async(hid,date)=>{ const habit=habits.find(h=>h.id===hid); const newChecked={...habit.checked,[date]:!habit.checked[date]}; setHabits(p=>p.map(h=>h.id===hid?{...h,checked:newChecked}:h)); await supabase.from("habits").update({checked:newChecked}).eq("id",hid); };
