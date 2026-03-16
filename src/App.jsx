@@ -306,8 +306,16 @@ const OB_TIMES = [
   {emoji:"🌆",label:"Evening", sub:"Wind down and reflect",        value:"evening"},
   {emoji:"🌙",label:"Night",   sub:"Before sleep ritual",          value:"night"},
 ];
-const STRESS_PATTERNS = [{label:"Work meetings",pct:72},{label:"Commute",pct:58},{label:"Deadlines",pct:50},{label:"Social friction",pct:30}];
-const JOY_PATTERNS    = [{label:"Exercise",pct:80},{label:"Deep work",pct:75},{label:"Social time",pct:68},{label:"Cooking/food",pct:55}];
+const stressTagCounts = {};
+const joyTagCounts = {};
+entries.forEach(e => {
+  (e.stressTags||[]).forEach(t => { stressTagCounts[t]=(stressTagCounts[t]||0)+1; });
+  (e.joyTags||[]).forEach(t => { joyTagCounts[t]=(joyTagCounts[t]||0)+1; });
+});
+const maxStress = Math.max(1,...Object.values(stressTagCounts));
+const maxJoy = Math.max(1,...Object.values(joyTagCounts));
+const STRESS_PATTERNS = Object.entries(stressTagCounts).sort((a,b)=>b[1]-a[1]).slice(0,6).map(([label,count])=>({label,pct:Math.round(count/maxStress*100)}));
+const JOY_PATTERNS = Object.entries(joyTagCounts).sort((a,b)=>b[1]-a[1]).slice(0,6).map(([label,count])=>({label,pct:Math.round(count/maxJoy*100)}));
 const DEFAULT_GROUPS  = [{id:"work",name:"Work",color:"#7a9ec4"},{id:"errands",name:"Errands",color:"#c4a45a"},{id:"social",name:"Friends & Social",color:"#a47ac4"},{id:"health",name:"Health",color:"#6a9e78"}];
 
 function last28Days(){ return Array.from({length:28},(_,i)=>{ const d=new Date(); d.setDate(d.getDate()-(27-i)); return d.toISOString().split("T")[0]; }); }
@@ -816,8 +824,8 @@ const habitDays=isMobile?lastNDays(7):last28Days();
         <button className="digest-gen-btn" onClick={handleGenerateDigest} disabled={generatingDigest||entries.length===0}>{generatingDigest?<><div className="loading-dots" style={{padding:0}}><span/><span/><span/></div> Writing your digest...</>:<><span>✦</span> Generate this week's digest</>}</button>
         {digest&&<div className="digest-card"><div className="digest-week">Week of {shortDate(weekDates[0])} — {shortDate(weekDates[6])}</div>{digest.headline&&<div className="digest-headline">"{digest.headline}"</div>}{digest.highlight&&<div className="digest-section"><div className="digest-section-label">Highlight</div><div className="digest-body">{digest.highlight}</div></div>}{digest.pattern&&<div className="digest-section"><div className="digest-section-label">Pattern noticed</div><div className="digest-body">{digest.pattern}</div></div>}{digest.nudge&&<div className="digest-section"><div className="digest-section-label">For next week</div><div className="digest-nudge">{digest.nudge}</div></div>}</div>}
       </div>
-      <div className="pattern-card"><h3>Consistent stressors</h3><p style={{marginBottom:16}}>What comes up most when you're feeling friction.</p><div className="bar-chart">{STRESS_PATTERNS.map(p=><div key={p.label} className="bar-row"><div className="bar-label">{p.label}</div><div className="bar-track"><div className="bar-fill stress" style={{width:`${p.pct}%`}}/></div><div className="bar-pct">{p.pct}%</div></div>)}</div></div>
-      <div className="pattern-card"><h3>What lights you up</h3><p style={{marginBottom:16}}>Things consistently tied to your better days.</p><div className="bar-chart">{JOY_PATTERNS.map(p=><div key={p.label} className="bar-row"><div className="bar-label">{p.label}</div><div className="bar-track"><div className="bar-fill joy" style={{width:`${p.pct}%`}}/></div><div className="bar-pct">{p.pct}%</div></div>)}</div></div>
+      <div className="pattern-card"><h3>Consistent stressors</h3><p style={{marginBottom:16}}>What comes up most when you're feeling friction.</p>{STRESS_PATTERNS.length===0?<div style={{fontSize:13,color:"var(--text-dim)",fontStyle:"italic"}}>No patterns yet — keep journaling and they'll appear here.</div>:<div className="bar-chart">{STRESS_PATTERNS.map(p=><div key={p.label} className="bar-row"><div className="bar-label">{p.label}</div><div className="bar-track"><div className="bar-fill stress" style={{width:`${p.pct}%`}}/></div><div className="bar-pct">{p.pct}%</div></div>)}</div>}</div>
+      <div className="pattern-card"><h3>What lights you up</h3><p style={{marginBottom:16}}>Things consistently tied to your better days.</p>{JOY_PATTERNS.length===0?<div style={{fontSize:13,color:"var(--text-dim)",fontStyle:"italic"}}>No patterns yet — keep journaling and they'll appear here.</div>:<div className="bar-chart">{JOY_PATTERNS.map(p=><div key={p.label} className="bar-row"><div className="bar-label">{p.label}</div><div className="bar-track"><div className="bar-fill joy" style={{width:`${p.pct}%`}}/></div><div className="bar-pct">{p.pct}%</div></div>)}</div>}</div>
       <div className="summary-card"><div className="summary-month">Monthly summary · {monthYear}</div>{monthlySummary?<div className="summary-text">{monthlySummary}</div>:<><div className="summary-text" style={{marginBottom:12}}>Generate a personal summary of your month based on your real entries.</div><button className="digest-gen-btn" onClick={handleGenerateMonthlySummary} disabled={generatingMonthlySummary||entries.length===0}>{generatingMonthlySummary?<><div className="loading-dots" style={{padding:0}}><span/><span/><span/></div> Writing your summary...</>:<><span>✦</span> Generate monthly summary</>}</button></>}</div>
     </>}
 
