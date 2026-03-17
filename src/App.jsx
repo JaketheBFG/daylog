@@ -882,3 +882,6 @@ const habitDays=isMobile?lastNDays(7):last28Days();
         </div>}
       </div>; })}
     </>}
+
+  </div></>);
+}
