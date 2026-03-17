@@ -412,6 +412,7 @@ const [selectedDate,setSelectedDate]=useState(todayStr);
   const [digest,setDigest]=useState(null);
   const [patternPeriod,setPatternPeriod]=useState("month");
   const [expandedEntry,setExpandedEntry]=useState(null);
+  const [searchQuery,setSearchQuery]=useState("");
 const [editingEntry,setEditingEntry]=useState(null);
 const [editingText,setEditingText]=useState("");
   const [generatingDigest,setGeneratingDigest]=useState(false);
@@ -761,8 +762,15 @@ const habitDays=isMobile?lastNDays(7):last28Days();
       </div>
       <div className="entry-card">
         <div className="entry-prompt">{preferredTime==="morning"?"What are you carrying into today?":"How was your day? Speak or write freely — no structure needed."}</div>
-        <textarea className="entry-textarea" placeholder="Today I... the meeting went... I felt... I need to remember..." value={text} onChange={e=>setText(e.target.value)} rows={6}/>
-        {[{key:"todos",emoji:"📝",label:"To-dos",placeholder:"Things I need to do...",val:subTodos,set:setSubTodos},{key:"learned",emoji:"💡",label:"Things I learned",placeholder:"Something I picked up today...",val:subLearned,set:setSubLearned},{key:"gratitude",emoji:"🙏",label:"Gratitude",placeholder:"What I'm grateful for...",val:subGratitude,set:setSubGratitude}].map(s=>(
+{entries.length===0&&!text&&<div style={{background:"var(--surface)",border:"1px solid var(--border)",borderRadius:16,padding:"24px",marginBottom:16,textAlign:"center"}}>
+          <div style={{fontSize:28,marginBottom:12}}>✦</div>
+          <div style={{fontFamily:"Playfair Display,serif",fontSize:18,color:"var(--cream)",marginBottom:8}}>Welcome to Throughline</div>
+          <p style={{fontSize:14,color:"var(--text-muted)",lineHeight:1.65,marginBottom:16}}>This is your private space to think out loud. Write about your day, what's on your mind, what you're grateful for — anything at all. The AI will find patterns and reflect back what it notices.</p>
+          <div style={{display:"flex",flexDirection:"column",gap:8}}>
+            {["Today I had a conversation that made me think...", "I've been feeling...", "Something I want to remember from today..."].map((prompt,i)=><button key={i} onClick={()=>setText(prompt)} style={{background:"var(--surface2)",border:"1px solid var(--border)",borderRadius:10,padding:"10px 14px",color:"var(--text-muted)",fontFamily:"DM Sans,sans-serif",fontSize:13,cursor:"pointer",textAlign:"left",transition:"all 0.15s"}}>{prompt}</button>)}
+          </div>
+        </div>}
+        <textarea className="entry-textarea" placeholder="Today I... the meeting went... I felt... I need to remember..." value={text} onChange={e=>setText(e.target.value)} rows={6}/>        {[{key:"todos",emoji:"📝",label:"To-dos",placeholder:"Things I need to do...",val:subTodos,set:setSubTodos},{key:"learned",emoji:"💡",label:"Things I learned",placeholder:"Something I picked up today...",val:subLearned,set:setSubLearned},{key:"gratitude",emoji:"🙏",label:"Gratitude",placeholder:"What I'm grateful for...",val:subGratitude,set:setSubGratitude}].map(s=>(
           <div key={s.key}>
             <div className="subsection-toggle" onClick={()=>setExpandedSections(p=>({...p,[s.key]:!p[s.key]}))}>
               <span className="subsection-emoji">{s.emoji}</span>
@@ -851,10 +859,15 @@ const habitDays=isMobile?lastNDays(7):last28Days();
 
     {/* ── HISTORY ── */}
     {tab==="history"&&<>
-      <div className="date-header"><div className="date-label">past entries</div><div className="date-main">Your journal</div></div>
-      {dbLoading&&<div className="empty-state">Loading your entries...</div>}
+<div className="date-header"><div className="date-label">past entries</div><div className="date-main">Your journal</div></div>
+      <div style={{marginBottom:16,position:"relative"}}>
+        <input value={searchQuery} onChange={e=>setSearchQuery(e.target.value)} placeholder="Search entries..." style={{width:"100%",background:"var(--surface)",border:"1px solid var(--border)",borderRadius:12,padding:"12px 16px 12px 40px",color:"var(--text)",fontFamily:"DM Sans,sans-serif",fontSize:14,fontWeight:300,outline:"none"}}/>
+        <span style={{position:"absolute",left:14,top:"50%",transform:"translateY(-50%)",color:"var(--text-dim)",fontSize:14}}>🔍</span>
+        {searchQuery&&<button onClick={()=>setSearchQuery("")} style={{position:"absolute",right:12,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",color:"var(--text-dim)",cursor:"pointer",fontSize:16}}>✕</button>}
+      </div>
+            {dbLoading&&<div className="empty-state">Loading your entries...</div>}
       {!dbLoading&&entries.length===0&&<div className="empty-state">No entries yet — write your first one in Today.</div>}
-      {entries.map(entry=>{ const mobj=entry.mood?MOODS[entry.mood-1]:null; const isExpanded=expandedEntry===entry.id; const isEditing=editingEntry===entry.id; return <div key={entry.id} className="pattern-card" style={{marginBottom:14,cursor:"pointer"}} onClick={()=>!isEditing&&setExpandedEntry(isExpanded?null:entry.id)}>
+      {entries.filter(e=>!searchQuery||e.text.toLowerCase().includes(searchQuery.toLowerCase())||e.insight?.toLowerCase().includes(searchQuery.toLowerCase())||e.stressTags?.some(t=>t.toLowerCase().includes(searchQuery.toLowerCase()))||e.joyTags?.some(t=>t.toLowerCase().includes(searchQuery.toLowerCase()))).map(entry=>{ const mobj=entry.mood?MOODS[entry.mood-1]:null; const isExpanded=expandedEntry===entry.id; const isEditing=editingEntry===entry.id; return <div key={entry.id} className="pattern-card" style={{marginBottom:14,cursor:"pointer"}} onClick={()=>!isEditing&&setExpandedEntry(isExpanded?null:entry.id)}>
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
           <div style={{fontSize:12,color:"var(--amber-soft)",fontFamily:"Playfair Display,serif",fontStyle:"italic"}}>{formatDate(entry.date)}</div>
           <div style={{display:"flex",alignItems:"center",gap:10}}>
