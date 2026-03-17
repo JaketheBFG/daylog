@@ -758,6 +758,20 @@ const habitDays=isMobile?lastNDays(7):last28Days();
         <div style={{display:"flex",justifyContent:"flex-end",alignItems:"center",width:"100%",marginBottom:6}}>
           {userName&&<div className="nav-greeting" style={{flex:1}}>Hey, {userName.split(" ")[0]}</div>}
           <button className="signout-btn" onClick={handleSignOut}>Sign out</button>
+          <button className="signout-btn" style={{marginLeft:8,color:"var(--rose)",borderColor:"var(--rose)"}} onClick={async()=>{
+            if(!window.confirm("Delete your account? This will permanently delete all your entries, tasks, habits and goals. This cannot be undone.")) return;
+            const uid=session.user.id;
+            await Promise.all([
+              supabase.from("entries").delete().eq("user_id",uid),
+              supabase.from("tasks").delete().eq("user_id",uid),
+              supabase.from("habits").delete().eq("user_id",uid),
+              supabase.from("goals").delete().eq("user_id",uid),
+              supabase.from("profiles").delete().eq("id",uid),
+            ]);
+            await supabase.auth.admin.deleteUser(uid).catch(()=>{});
+            await supabase.auth.signOut();
+            setSession(null); setEntries([]); setAllTasks([]); setHabits([]); setGoals([]);
+          }}>Delete account</button>
         </div>
         <div className="nav-tabs">
           {[
