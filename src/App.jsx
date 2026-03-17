@@ -410,6 +410,7 @@ const [selectedDate,setSelectedDate]=useState(todayStr);
 
   // Digest / Summary
   const [digest,setDigest]=useState(null);
+  const [patternPeriod,setPatternPeriod]=useState("month");
   const [generatingDigest,setGeneratingDigest]=useState(false);
   const [monthlySummary,setMonthlySummary]=useState(null);
   const [generatingMonthlySummary,setGeneratingMonthlySummary]=useState(false);
@@ -523,8 +524,15 @@ const {error}=await supabase.auth.resetPasswordForEmail(authEmail,{redirectTo:"h
   const setTaskGroup=async(id,gid)=>{ setAllTasks(p=>p.map(t=>t.id===id?{...t,groupId:gid||null}:t)); await supabase.from("tasks").update({group_id:gid||null}).eq("id",id); };
   const toggleGroupCollapse=(gid)=>setCollapsedGroups(p=>({...p,[gid]:!p[gid]}));
   const filteredTasks=allTasks.filter(t=>taskFilter==="open"?!t.done:taskFilter==="done"?t.done:true);
+  const now=new Date();
+  const periodStart=new Date(now);
+  if(patternPeriod==="week") periodStart.setDate(now.getDate()-7);
+  else if(patternPeriod==="month") periodStart.setMonth(now.getMonth()-1);
+  else periodStart.setFullYear(now.getFullYear()-1);
+  const periodStartStr=periodStart.toISOString().split("T")[0];
+  const filteredEntries=entries.filter(e=>e.date>=periodStartStr);
   const stressTagCounts={};const joyTagCounts={};
-  entries.forEach(e=>{
+  filteredEntries.forEach(e=>{
     (e.stressCategories||e.stressTags||[]).forEach(t=>{stressTagCounts[t]=(stressTagCounts[t]||0)+1;});
     (e.joyCategories||e.joyTags||[]).forEach(t=>{joyTagCounts[t]=(joyTagCounts[t]||0)+1;});
   });
@@ -830,7 +838,10 @@ const habitDays=isMobile?lastNDays(7):last28Days();
         <button className="digest-gen-btn" onClick={handleGenerateDigest} disabled={generatingDigest||entries.length===0}>{generatingDigest?<><div className="loading-dots" style={{padding:0}}><span/><span/><span/></div> Writing your digest...</>:<><span>✦</span> Generate this week's digest</>}</button>
         {digest&&<div className="digest-card"><div className="digest-week">Week of {shortDate(weekDates[0])} — {shortDate(weekDates[6])}</div>{digest.headline&&<div className="digest-headline">"{digest.headline}"</div>}{digest.highlight&&<div className="digest-section"><div className="digest-section-label">Highlight</div><div className="digest-body">{digest.highlight}</div></div>}{digest.pattern&&<div className="digest-section"><div className="digest-section-label">Pattern noticed</div><div className="digest-body">{digest.pattern}</div></div>}{digest.nudge&&<div className="digest-section"><div className="digest-section-label">For next week</div><div className="digest-nudge">{digest.nudge}</div></div>}</div>}
       </div>
-      <div className="pattern-card"><h3>Consistent stressors</h3><p style={{marginBottom:16}}>What comes up most when you're feeling friction.</p>{STRESS_PATTERNS.length===0?<div style={{fontSize:13,color:"var(--text-dim)",fontStyle:"italic"}}>No patterns yet — keep journaling and they'll appear here.</div>:<div className="bar-chart">{STRESS_PATTERNS.map(p=><div key={p.label} className="bar-row"><div className="bar-label">{p.label}</div><div className="bar-track"><div className="bar-fill stress" style={{width:`${p.pct}%`}}/></div><div className="bar-pct">{p.count}x</div></div>)}</div>}</div>
+      <div style={{display:"flex",gap:8,marginBottom:16}}>
+  {["week","month","year"].map(p=><button key={p} onClick={()=>setPatternPeriod(p)} style={{padding:"6px 14px",borderRadius:20,border:"1px solid var(--border)",background:patternPeriod===p?"var(--amber)":"transparent",color:patternPeriod===p?"#0e0c0a":"var(--text-muted)",fontFamily:"DM Sans,sans-serif",fontSize:12,cursor:"pointer"}}>{p.charAt(0).toUpperCase()+p.slice(1)}</button>)}
+</div>
+<div className="pattern-card"><h3>Consistent stressors</h3><p style={{marginBottom:16}}>What comes up most when you're feeling friction.</p>{STRESS_PATTERNS.length===0?<div style={{fontSize:13,color:"var(--text-dim)",fontStyle:"italic"}}>No patterns yet — keep journaling and they'll appear here.</div>:<div className="bar-chart">{STRESS_PATTERNS.map(p=><div key={p.label} className="bar-row"><div className="bar-label">{p.label}</div><div className="bar-track"><div className="bar-fill stress" style={{width:`${p.pct}%`}}/></div><div className="bar-pct">{p.count}x</div></div>)}</div>}</div>
       <div className="pattern-card"><h3>What lights you up</h3><p style={{marginBottom:16}}>Things consistently tied to your better days.</p>{JOY_PATTERNS.length===0?<div style={{fontSize:13,color:"var(--text-dim)",fontStyle:"italic"}}>No patterns yet — keep journaling and they'll appear here.</div>:<div className="bar-chart">{JOY_PATTERNS.map(p=><div key={p.label} className="bar-row"><div className="bar-label">{p.label}</div><div className="bar-track"><div className="bar-fill joy" style={{width:`${p.pct}%`}}/></div><div className="bar-pct">{p.count}x</div></div>)}</div>}</div>
       <div className="summary-card"><div className="summary-month">Monthly summary · {monthYear}</div>{monthlySummary?<div className="summary-text">{monthlySummary}</div>:<><div className="summary-text" style={{marginBottom:12}}>Generate a personal summary of your month based on your real entries.</div><button className="digest-gen-btn" onClick={handleGenerateMonthlySummary} disabled={generatingMonthlySummary||entries.length===0}>{generatingMonthlySummary?<><div className="loading-dots" style={{padding:0}}><span/><span/><span/></div> Writing your summary...</>:<><span>✦</span> Generate monthly summary</>}</button></>}</div>
     </>}
