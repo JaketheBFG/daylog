@@ -756,12 +756,12 @@ const habitDays=isMobile?lastNDays(7):last28Days();
     <nav className="nav">
       <div className="nav-logo">through<span>line</span></div>
       <div className="nav-right">
+        <div style={{position:"relative"}}>
         <div style={{display:"flex",justifyContent:"flex-end",alignItems:"center",width:"100%",marginBottom:6}}>
           {userName&&<div className="nav-greeting" style={{flex:1}}>Hey, {userName.split(" ")[0]}</div>}
           <button className="signout-btn" onClick={()=>setShowSettings(p=>!p)}>⚙️ Settings</button>
         </div>
-        {showSettings&&<div style={{background:"var(--surface)",border:"1px solid var(--border)",borderRadius:14,padding:"16px",marginBottom:12,display:"flex",flexDirection:"column",gap:10}}>
-          <div style={{fontSize:12,color:"var(--text-dim)",letterSpacing:"0.5px",marginBottom:4}}>ACCOUNT</div>
+{showSettings&&<div style={{position:"absolute",top:0,right:0,zIndex:100,background:"var(--surface2)",border:"1px solid var(--border)",borderRadius:14,padding:"16px",width:220,display:"flex",flexDirection:"column",gap:10,boxShadow:"0 8px 32px rgba(0,0,0,0.4)"}}>          <div style={{fontSize:12,color:"var(--text-dim)",letterSpacing:"0.5px",marginBottom:4}}>ACCOUNT</div>
           {userName&&<div style={{fontSize:14,color:"var(--text-muted)"}}>{userName}</div>}
           <div style={{fontSize:14,color:"var(--text-muted)"}}>{session?.user?.email}</div>
           <div style={{height:"1px",background:"var(--border)",margin:"4px 0"}}/>
@@ -783,6 +783,7 @@ const habitDays=isMobile?lastNDays(7):last28Days();
             setSession(null); setEntries([]); setAllTasks([]); setHabits([]); setGoals([]);
           }} style={{background:"none",border:"none",color:"var(--rose)",fontFamily:"DM Sans,sans-serif",fontSize:13,cursor:"pointer",textAlign:"left",padding:0}}>Delete account</button>
         </div>}
+        </div>
         <div className="nav-tabs">
           {[
             {id:"today",  label:"Today"},
