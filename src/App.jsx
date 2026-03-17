@@ -334,7 +334,15 @@ async function callClaude(prompt,maxTokens=1000,userId=null){
 async function analyzeEntry(text,subTodos,subLearned,subGratitude,userId=null){ 
   const extra = [subTodos&&`TO-DOS SECTION: ${subTodos}`,subLearned&&`THINGS I LEARNED: ${subLearned}`,subGratitude&&`GRATITUDE: ${subGratitude}`].filter(Boolean).join("\n");
   const fullText = extra ? `${text}\n\n${extra}` : text;
-  return JSON.parse(await callClaude(`Analyze this journal entry and respond ONLY with valid JSON. Extract todos PRIMARILY from the TO-DOS SECTION if present.\n{"todos":["action item"],"stressTags":["2-4 word label"],"joyTags":["2-4 word label"],"insight":"One warm sentence."}\nEntry:\n${fullText}`,1000,userId)); 
+  const STRESS_CATS = ["Work","Relationships","Health","Finance","Sleep","Family","Social","Commute","Technology","Time pressure"];
+  const JOY_CATS = ["Exercise","Creativity","Learning","Nature","Food","Music","Rest","Deep work","Connection","Accomplishment"];
+  return JSON.parse(await callClaude(`Analyze this journal entry and respond ONLY with valid JSON. Extract todos PRIMARILY from the TO-DOS SECTION if present.
+For stressTags and joyTags: include specific descriptive tags (2-4 words) that capture what actually happened.
+Also include stressCategories and joyCategories using ONLY these exact categories:
+Stress categories: ${STRESS_CATS.join(", ")}
+Joy categories: ${JOY_CATS.join(", ")}
+{"todos":["action item"],"stressTags":["specific tag"],"joyTags":["specific tag"],"stressCategories":["category"],"joyCategories":["category"],"insight":"One warm sentence."}
+Entry:\n${fullText}`,1000,userId)); 
 }
 async function suggestGoals(entries,userId=null){ return JSON.parse(await callClaude(`Suggest 3 personal growth goals based on these journal entries. Focus on happiness and wellbeing, NOT productivity.\n${entries.slice(0,5).map(e=>`${e.date}: ${e.text}`).join("\n")}\nRespond ONLY with valid JSON array:\n[{"title":"goal","why":"reason","icon":"emoji"}]`,1000,userId)); }async function generateMonthlySummary(entries,userName,userId=null){ return JSON.parse(await callClaude(`Write a warm monthly summary for ${userName||"this person"} based on their journal entries this month.\nEntries:\n${entries.slice(0,20).map(e=>`${e.date}: ${e.text}`).join("\n\n")}\nRespond ONLY with valid JSON:\n{"summary":"2-3 sentence warm paragraph summarizing their month, patterns, and growth"}`,600,userId)); }
 async function generateWeeklyDigest(entries,userName,userId=null){ return JSON.parse(await callClaude(`Write a personal weekly reflection for ${userName||"this person"}.\nEntries:\n${entries.slice(0,7).map(e=>`${e.date} (mood ${e.mood||"?"}/5): ${e.text}`).join("\n\n")}\nRespond ONLY with valid JSON:\n{"headline":"evocative sentence","highlight":"best moment","pattern":"recurring observation","nudge":"one kind suggestion for next week"}`,800,userId)); }
@@ -516,7 +524,10 @@ const {error}=await supabase.auth.resetPasswordForEmail(authEmail,{redirectTo:"h
   const toggleGroupCollapse=(gid)=>setCollapsedGroups(p=>({...p,[gid]:!p[gid]}));
   const filteredTasks=allTasks.filter(t=>taskFilter==="open"?!t.done:taskFilter==="done"?t.done:true);
   const stressTagCounts={};const joyTagCounts={};
-  entries.forEach(e=>{(e.stressTags||[]).forEach(t=>{stressTagCounts[t]=(stressTagCounts[t]||0)+1;});(e.joyTags||[]).forEach(t=>{joyTagCounts[t]=(joyTagCounts[t]||0)+1;});});
+  entries.forEach(e=>{
+    (e.stressCategories||e.stressTags||[]).forEach(t=>{stressTagCounts[t]=(stressTagCounts[t]||0)+1;});
+    (e.joyCategories||e.joyTags||[]).forEach(t=>{joyTagCounts[t]=(joyTagCounts[t]||0)+1;});
+  });
   const maxStress=Math.max(1,...Object.values(stressTagCounts));const maxJoy=Math.max(1,...Object.values(joyTagCounts));
   const STRESS_PATTERNS=Object.entries(stressTagCounts).sort((a,b)=>b[1]-a[1]).slice(0,6).map(([label,count])=>({label,pct:Math.round(count/maxStress*100)}));
   const JOY_PATTERNS=Object.entries(joyTagCounts).sort((a,b)=>b[1]-a[1]).slice(0,6).map(([label,count])=>({label,pct:Math.round(count/maxJoy*100)}));
@@ -540,8 +551,7 @@ const handleGenerateDigest=async()=>{ setGeneratingDigest(true); try{ const d=aw
     setLoading(true); setResult(null);
     try{
 const parsed=await analyzeEntry(text,subTodos,subLearned,subGratitude,session.user.id);      setResult(parsed); setTodos(parsed.todos||[]);
-      const entry={date:selectedDate,mood:todayMood,text,todos:parsed.todos||[],stress_tags:parsed.stressTags||[],joy_tags:parsed.joyTags||[],insight:parsed.insight||"",user_id:session.user.id};
-      const {data}=await supabase.from("entries").insert(entry).select().single();
+const entry={date:selectedDate,mood:todayMood,text,todos:parsed.todos||[],stress_tags:parsed.stressTags||[],joy_tags:parsed.joyTags||[],stress_categories:parsed.stressCategories||[],joy_categories:parsed.joyCategories||[],insight:parsed.insight||"",user_id:session.user.id};      const {data}=await supabase.from("entries").insert(entry).select().single();
       if(data) setEntries(p=>[{...data,stressTags:data.stress_tags||[],joyTags:data.joy_tags||[]},...p]);
       if(parsed.todos?.length){
         const newTasks=parsed.todos.map(t=>({text:t,done:false,source:"entry",source_date:selectedDate,added_date:selectedDate,group_id:null,user_id:session.user.id}));
