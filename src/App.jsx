@@ -411,6 +411,9 @@ const [selectedDate,setSelectedDate]=useState(todayStr);
   // Digest / Summary
   const [digest,setDigest]=useState(null);
   const [patternPeriod,setPatternPeriod]=useState("month");
+  const [expandedEntry,setExpandedEntry]=useState(null);
+const [editingEntry,setEditingEntry]=useState(null);
+const [editingText,setEditingText]=useState("");
   const [generatingDigest,setGeneratingDigest]=useState(false);
   const [monthlySummary,setMonthlySummary]=useState(null);
   const [generatingMonthlySummary,setGeneratingMonthlySummary]=useState(false);
@@ -851,19 +854,31 @@ const habitDays=isMobile?lastNDays(7):last28Days();
       <div className="date-header"><div className="date-label">past entries</div><div className="date-main">Your journal</div></div>
       {dbLoading&&<div className="empty-state">Loading your entries...</div>}
       {!dbLoading&&entries.length===0&&<div className="empty-state">No entries yet — write your first one in Today.</div>}
-      {entries.map(entry=>{ const mobj=entry.mood?MOODS[entry.mood-1]:null; return <div key={entry.id} className="pattern-card" style={{marginBottom:14}}>
+      {entries.map(entry=>{ const mobj=entry.mood?MOODS[entry.mood-1]:null; const isExpanded=expandedEntry===entry.id; const isEditing=editingEntry===entry.id; return <div key={entry.id} className="pattern-card" style={{marginBottom:14,cursor:"pointer"}} onClick={()=>!isEditing&&setExpandedEntry(isExpanded?null:entry.id)}>
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
           <div style={{fontSize:12,color:"var(--amber-soft)",fontFamily:"Playfair Display,serif",fontStyle:"italic"}}>{formatDate(entry.date)}</div>
           <div style={{display:"flex",alignItems:"center",gap:10}}>
             {mobj&&<div style={{display:"flex",alignItems:"center",gap:5,fontSize:12,color:"var(--text-muted)"}}><span>{mobj.emoji}</span><span style={{fontStyle:"italic"}}>{mobj.label}</span></div>}
-            <button onClick={async()=>{ if(!window.confirm("Delete this entry?")) return; await supabase.from("entries").delete().eq("id",entry.id); setEntries(p=>p.filter(e=>e.id!==entry.id)); }} style={{background:"none",border:"none",color:"var(--text-dim)",cursor:"pointer",fontSize:14,padding:"0 4px",transition:"color 0.15s"}} onMouseOver={e=>e.target.style.color="var(--rose)"} onMouseOut={e=>e.target.style.color="var(--text-dim)"}>✕</button>
+            <span style={{fontSize:12,color:"var(--text-dim)"}}>{isExpanded?"▲":"▼"}</span>
+            <button onClick={async(e)=>{ e.stopPropagation(); if(!window.confirm("Delete this entry?")) return; await supabase.from("entries").delete().eq("id",entry.id); setEntries(p=>p.filter(e=>e.id!==entry.id)); }} style={{background:"none",border:"none",color:"var(--text-dim)",cursor:"pointer",fontSize:14,padding:"0 4px",transition:"color 0.15s"}} onMouseOver={e=>e.target.style.color="var(--rose)"} onMouseOut={e=>e.target.style.color="var(--text-dim)"}>✕</button>
           </div>
         </div>
-        <p style={{marginBottom:12,fontSize:14,lineHeight:1.65}}>{entry.text.slice(0,180)}{entry.text.length>180?"...":""}</p>
-        {(entry.stressTags?.length>0||entry.joyTags?.length>0)&&<div className="tags-row" style={{marginBottom:8}}>{entry.stressTags?.map((t,i)=><span key={i} className="tag tag-stress">↑ {t}</span>)}{entry.joyTags?.map((t,i)=><span key={i} className="tag tag-joy">✦ {t}</span>)}</div>}
-        {entry.todos?.length>0&&<div style={{fontSize:12,color:"var(--text-muted)"}}>{entry.todos.length} action item{entry.todos.length>1?"s":""}</div>}
+        {!isExpanded&&<>
+          <p style={{marginBottom:8,fontSize:14,lineHeight:1.65,color:"var(--text-muted)",fontStyle:"italic"}}>{entry.insight||entry.text.slice(0,120)+(entry.text.length>120?"...":"")}</p>
+          {(entry.stressTags?.length>0||entry.joyTags?.length>0)&&<div className="tags-row">{entry.stressTags?.map((t,i)=><span key={i} className="tag tag-stress">↑ {t}</span>)}{entry.joyTags?.map((t,i)=><span key={i} className="tag tag-joy">✦ {t}</span>)}</div>}
+        </>}
+        {isExpanded&&!isEditing&&<>
+          <p style={{marginBottom:12,fontSize:14,lineHeight:1.75}}>{entry.text}</p>
+          {(entry.stressTags?.length>0||entry.joyTags?.length>0)&&<div className="tags-row" style={{marginBottom:12}}>{entry.stressTags?.map((t,i)=><span key={i} className="tag tag-stress">↑ {t}</span>)}{entry.joyTags?.map((t,i)=><span key={i} className="tag tag-joy">✦ {t}</span>)}</div>}
+          {entry.todos?.length>0&&<div style={{fontSize:12,color:"var(--text-muted)",marginBottom:12}}>{entry.todos.length} action item{entry.todos.length!==1?"s":""}</div>}
+          <button onClick={e=>{e.stopPropagation();setEditingEntry(entry.id);setEditingText(entry.text);}} style={{background:"none",border:"1px solid var(--border)",borderRadius:8,padding:"6px 14px",color:"var(--text-muted)",fontFamily:"DM Sans,sans-serif",fontSize:12,cursor:"pointer"}}>Edit entry</button>
+        </>}
+        {isEditing&&<div onClick={e=>e.stopPropagation()}>
+          <textarea value={editingText} onChange={e=>setEditingText(e.target.value)} style={{width:"100%",background:"var(--surface2)",border:"1px solid var(--amber)",borderRadius:10,padding:"12px",color:"var(--text)",fontFamily:"DM Sans,sans-serif",fontSize:14,lineHeight:1.7,outline:"none",resize:"vertical",minHeight:160}}/>
+          <div style={{display:"flex",gap:8,marginTop:8}}>
+            <button onClick={async()=>{ await supabase.from("entries").update({text:editingText}).eq("id",entry.id); setEntries(p=>p.map(e=>e.id===entry.id?{...e,text:editingText}:e)); setEditingEntry(null); }} style={{padding:"8px 16px",borderRadius:8,background:"var(--amber)",border:"none",color:"#0e0c0a",fontFamily:"DM Sans,sans-serif",fontSize:13,cursor:"pointer"}}>Save</button>
+            <button onClick={()=>setEditingEntry(null)} style={{padding:"8px 16px",borderRadius:8,background:"transparent",border:"1px solid var(--border)",color:"var(--text-muted)",fontFamily:"DM Sans,sans-serif",fontSize:13,cursor:"pointer"}}>Cancel</button>
+          </div>
+        </div>}
       </div>; })}
     </>}
-
-  </div></>);
-}
