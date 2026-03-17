@@ -772,6 +772,7 @@ const habitDays=isMobile?lastNDays(7):last28Days();
             <div style={{height:"1px",background:"var(--border)",margin:"4px 0"}}/>
             <a href="https://www.gethroughline.com/privacy-policy" target="_blank" rel="noreferrer" style={{fontSize:13,color:"var(--text-muted)",textDecoration:"none"}}>Privacy policy</a>
             <a href="https://www.gethroughline.com/terms-of-service" target="_blank" rel="noreferrer" style={{fontSize:13,color:"var(--text-muted)",textDecoration:"none"}}>Terms of service</a>
+            <a href="mailto:privacy@gethroughline.com?subject=Throughline Feedback" style={{fontSize:13,color:"var(--text-muted)",textDecoration:"none"}}>Send feedback</a>
             <div style={{height:"1px",background:"var(--border)",margin:"4px 0"}}/>
             <button onClick={handleSignOut} style={{background:"none",border:"none",color:"var(--text-muted)",fontFamily:"DM Sans,sans-serif",fontSize:13,cursor:"pointer",textAlign:"left",padding:0}}>Sign out</button>
             <button onClick={async()=>{
