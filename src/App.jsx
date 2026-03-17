@@ -770,8 +770,8 @@ const habitDays=isMobile?lastNDays(7):last28Days();
             {userName&&<div style={{fontSize:14,color:"var(--text-muted)"}}>{userName}</div>}
             <div style={{fontSize:14,color:"var(--text-muted)"}}>{session?.user?.email}</div>
             <div style={{height:"1px",background:"var(--border)",margin:"4px 0"}}/>
-            <a href="/privacy-policy" style={{fontSize:13,color:"var(--text-muted)",textDecoration:"none"}}>Privacy policy</a>
-            <a href="/terms-of-service" style={{fontSize:13,color:"var(--text-muted)",textDecoration:"none"}}>Terms of service</a>
+            <a href="https://www.gethroughline.com/privacy-policy" target="_blank" rel="noreferrer" style={{fontSize:13,color:"var(--text-muted)",textDecoration:"none"}}>Privacy policy</a>
+            <a href="https://www.gethroughline.com/terms-of-service" target="_blank" rel="noreferrer" style={{fontSize:13,color:"var(--text-muted)",textDecoration:"none"}}>Terms of service</a>
             <div style={{height:"1px",background:"var(--border)",margin:"4px 0"}}/>
             <button onClick={handleSignOut} style={{background:"none",border:"none",color:"var(--text-muted)",fontFamily:"DM Sans,sans-serif",fontSize:13,cursor:"pointer",textAlign:"left",padding:0}}>Sign out</button>
             <button onClick={async()=>{
