@@ -411,6 +411,7 @@ const [selectedDate,setSelectedDate]=useState(todayStr);
   // Digest / Summary
   const [digest,setDigest]=useState(null);
   const [patternPeriod,setPatternPeriod]=useState("month");
+  const [isPro,setIsPro]=useState(false);
   const [expandedEntry,setExpandedEntry]=useState(null);
   const [searchQuery,setSearchQuery]=useState("");
 const [editingEntry,setEditingEntry]=useState(null);
@@ -445,7 +446,7 @@ const [editingText,setEditingText]=useState("");
     setupNotifications();
   },[]);
 
-  
+
   // ── Auth listener ──
   useEffect(()=>{
     supabase.auth.getSession().then(({data:{session}})=>{
@@ -480,16 +481,18 @@ if(hash.includes("type=recovery") || query.includes("type=recovery")) setAuthMod
     async function loadAll(){
       setDbLoading(true);
       const uid = session.user.id;
-      const [entriesRes,tasksRes,habitsRes,goalsRes]=await Promise.all([
+      const [entriesRes,tasksRes,habitsRes,goalsRes,profileRes]=await Promise.all([
         supabase.from("entries").select("*").eq("user_id",uid).order("date",{ascending:false}),
         supabase.from("tasks").select("*").eq("user_id",uid).order("created_at",{ascending:true}),
         supabase.from("habits").select("*").eq("user_id",uid).order("created_at",{ascending:true}),
         supabase.from("goals").select("*").eq("user_id",uid).order("created_at",{ascending:true}),
+        supabase.from("profiles").select("*").eq("id",uid).single(),
       ]);
       if(entriesRes.data?.length) setEntries(entriesRes.data.map(e=>({...e,todos:e.todos||[],stressTags:e.stress_tags||[],joyTags:e.joy_tags||[]})));
       if(tasksRes.data?.length) setAllTasks(tasksRes.data.map(t=>({...t,groupId:t.group_id,sourceDate:t.source_date,addedDate:t.added_date})));
       if(habitsRes.data?.length) setHabits(habitsRes.data.map(h=>({...h,checked:h.checked||{}})));
-      if(goalsRes.data?.length) setGoals(goalsRes.data);
+     if(goalsRes.data?.length) setGoals(goalsRes.data);
+      if(profileRes.data) setIsPro(profileRes.data.is_pro && (!profileRes.data.pro_expires_at || new Date(profileRes.data.pro_expires_at) > new Date()));
       setDbLoading(false);
     }
     loadAll();
