@@ -412,6 +412,7 @@ const [selectedDate,setSelectedDate]=useState(todayStr);
   const [digest,setDigest]=useState(null);
   const [patternPeriod,setPatternPeriod]=useState("month");
   const [isPro,setIsPro]=useState(false);
+  const [showSettings,setShowSettings]=useState(false);
   const [expandedEntry,setExpandedEntry]=useState(null);
   const [searchQuery,setSearchQuery]=useState("");
 const [editingEntry,setEditingEntry]=useState(null);
@@ -757,8 +758,18 @@ const habitDays=isMobile?lastNDays(7):last28Days();
       <div className="nav-right">
         <div style={{display:"flex",justifyContent:"flex-end",alignItems:"center",width:"100%",marginBottom:6}}>
           {userName&&<div className="nav-greeting" style={{flex:1}}>Hey, {userName.split(" ")[0]}</div>}
-          <button className="signout-btn" onClick={handleSignOut}>Sign out</button>
-          <button className="signout-btn" style={{marginLeft:8,color:"var(--rose)",borderColor:"var(--rose)"}} onClick={async()=>{
+          <button className="signout-btn" onClick={()=>setShowSettings(p=>!p)}>⚙️ Settings</button>
+        </div>
+        {showSettings&&<div style={{background:"var(--surface)",border:"1px solid var(--border)",borderRadius:14,padding:"16px",marginBottom:12,display:"flex",flexDirection:"column",gap:10}}>
+          <div style={{fontSize:12,color:"var(--text-dim)",letterSpacing:"0.5px",marginBottom:4}}>ACCOUNT</div>
+          {userName&&<div style={{fontSize:14,color:"var(--text-muted)"}}>{userName}</div>}
+          <div style={{fontSize:14,color:"var(--text-muted)"}}>{session?.user?.email}</div>
+          <div style={{height:"1px",background:"var(--border)",margin:"4px 0"}}/>
+          <a href="/privacy-policy" style={{fontSize:13,color:"var(--text-muted)",textDecoration:"none"}}>Privacy policy</a>
+          <a href="/terms-of-service" style={{fontSize:13,color:"var(--text-muted)",textDecoration:"none"}}>Terms of service</a>
+          <div style={{height:"1px",background:"var(--border)",margin:"4px 0"}}/>
+          <button onClick={handleSignOut} style={{background:"none",border:"none",color:"var(--text-muted)",fontFamily:"DM Sans,sans-serif",fontSize:13,cursor:"pointer",textAlign:"left",padding:0}}>Sign out</button>
+          <button onClick={async()=>{
             if(!window.confirm("Delete your account? This will permanently delete all your entries, tasks, habits and goals. This cannot be undone.")) return;
             const uid=session.user.id;
             await Promise.all([
@@ -768,11 +779,10 @@ const habitDays=isMobile?lastNDays(7):last28Days();
               supabase.from("goals").delete().eq("user_id",uid),
               supabase.from("profiles").delete().eq("id",uid),
             ]);
-            await supabase.auth.admin.deleteUser(uid).catch(()=>{});
             await supabase.auth.signOut();
             setSession(null); setEntries([]); setAllTasks([]); setHabits([]); setGoals([]);
-          }}>Delete account</button>
-        </div>
+          }} style={{background:"none",border:"none",color:"var(--rose)",fontFamily:"DM Sans,sans-serif",fontSize:13,cursor:"pointer",textAlign:"left",padding:0}}>Delete account</button>
+        </div>}
         <div className="nav-tabs">
           {[
             {id:"today",  label:"Today"},
