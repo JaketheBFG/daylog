@@ -421,6 +421,31 @@ const [editingText,setEditingText]=useState("");
 
   useEffect(()=>{ if(addingGroup&&newGroupInputRef.current) newGroupInputRef.current.focus(); },[addingGroup]);
 
+  // ── Notifications ──
+  useEffect(()=>{
+    if(!window.Capacitor) return;
+    const setupNotifications=async()=>{
+      try {
+        const {LocalNotifications}=await import("@capacitor/local-notifications");
+        const {display}=await LocalNotifications.requestPermissions();
+        if(display==="granted"){
+          await LocalNotifications.cancel({notifications:[{id:1}]});
+          await LocalNotifications.schedule({notifications:[{
+            id:1,
+            title:"Time to reflect ✦",
+            body:"A few minutes of journaling can change your whole perspective.",
+            schedule:{on:{hour:21,minute:0}},
+            sound:null,
+            actionTypeId:"",
+            extra:null
+          }]});
+        }
+      } catch(e){ console.log("Notifications not available",e); }
+    };
+    setupNotifications();
+  },[]);
+
+  
   // ── Auth listener ──
   useEffect(()=>{
     supabase.auth.getSession().then(({data:{session}})=>{
