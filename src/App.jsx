@@ -604,18 +604,24 @@ const entry={date:selectedDate,mood:todayMood,text,todos:parsed.todos||[],stress
   };
 
   // ── Voice ──
-  const toggleVoice=()=>{
+ const toggleVoice=()=>{
     if(recording){ recognitionRef.current?.stop(); setRecording(false); return; }
     const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
     if(!SR){ alert("Voice input not supported on this device."); return; }
-    const r=new SR(); 
-    r.continuous=true; 
-    r.interimResults=true; 
+    const r=new SR();
+    r.continuous=true;
+    r.interimResults=false;
     r.lang="en-US";
-    r.onresult=(e)=>{ let f=""; for(let i=0;i<e.results.length;i++) if(e.results[i].isFinal) f+=e.results[i][0].transcript+" "; if(f) setText(p=>p+f); };
-    r.onend=()=>setRecording(false); 
-    r.start(); 
-    recognitionRef.current=r; 
+    r.onresult=(e)=>{
+      let f="";
+      for(let i=e.resultIndex;i<e.results.length;i++){
+        if(e.results[i].isFinal) f+=e.results[i][0].transcript+" ";
+      }
+      if(f) setText(p=>p+f);
+    };
+    r.onend=()=>setRecording(false);
+    r.start();
+    recognitionRef.current=r;
     setRecording(true);
   };
 
@@ -840,6 +846,26 @@ const habitDays=isMobile?lastNDays(7):last28Days();
             {expandedSections[s.key]&&<div className="subsection-body"><textarea className="subsection-textarea" placeholder={s.placeholder} value={s.val} onChange={e=>s.set(e.target.value)} rows={3}/></div>}
           </div>
         ))}
+        {habits.length>0&&<div>
+          <div className="subsection-toggle" onClick={()=>setExpandedSections(p=>({...p,habits:!p.habits}))}>
+            <span className="subsection-emoji">🌿</span>
+            <span className="subsection-label">Habits{Object.keys(expandedSections).includes("habits")&&habits.some(h=>h.checked?.[selectedDate])&&<span style={{color:"var(--amber-soft)",marginLeft:6}}>✦</span>}</span>
+            <span className={`subsection-chevron ${expandedSections.habits?"open":""}`}>▶</span>
+          </div>
+          {expandedSections.habits&&<div className="subsection-body" style={{display:"flex",flexDirection:"column",gap:10}}>
+            {habits.map(h=>{
+              const isChecked=!!(h.checked?.[selectedDate]);
+              return <div key={h.id} style={{display:"flex",alignItems:"center",gap:10,cursor:"pointer"}} onClick={async()=>{
+                const newChecked={...h.checked,[selectedDate]:!isChecked};
+                setHabits(p=>p.map(x=>x.id===h.id?{...x,checked:newChecked}:x));
+                await supabase.from("habits").update({checked:newChecked}).eq("id",h.id);
+              }}>
+                <div style={{width:18,height:18,borderRadius:4,border:`2px solid ${isChecked?h.color||"var(--amber)":"var(--border)"}`,background:isChecked?h.color||"var(--amber)":"transparent",flexShrink:0,transition:"all 0.15s"}}/>
+                <span style={{fontSize:13,color:isChecked?"var(--text)":"var(--text-muted)"}}>{h.name}</span>
+              </div>;
+            })}
+          </div>}
+        </div>}
         <div className="entry-footer">
           <span className="char-count">{text.length} characters</span>
           <div className="entry-actions">
