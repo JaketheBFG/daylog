@@ -771,7 +771,7 @@ const habitDays=isMobile?lastNDays(7):last28Days();
         </div>
         {showSettings&&<>
           <div style={{position:"fixed",inset:0,zIndex:99}} onClick={()=>setShowSettings(false)}/>
-          <div style={{position:"fixed",top:80,right:16,zIndex:100,background:"var(--surface2)",border:"1px solid var(--border)",borderRadius:14,padding:"16px",width:"min(220px, calc(100vw - 32px))",display:"flex",flexDirection:"column",gap:10,boxShadow:"0 8px 32px rgba(0,0,0,0.4)"}}>
+          <div style={{position:"fixed",top:80,left:"50%",transform:"translateX(-50%)",zIndex:100,background:"var(--surface2)",border:"1px solid var(--border)",borderRadius:14,padding:"16px",width:"calc(100vw - 48px)",maxWidth:280,display:"flex",flexDirection:"column",gap:10,boxShadow:"0 8px 32px rgba(0,0,0,0.4)"}}>
             <div style={{fontSize:12,color:"var(--text-dim)",letterSpacing:"0.5px",marginBottom:4}}>ACCOUNT</div>
             {userName&&<div style={{fontSize:14,color:"var(--text-muted)"}}>{userName}</div>}
             <div style={{fontSize:14,color:"var(--text-muted)"}}>{session?.user?.email}</div>
