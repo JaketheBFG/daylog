@@ -893,7 +893,7 @@ const habitDays=isMobile?lastNDays(7):last28Days();
         {(result.stressTags?.length>0||result.joyTags?.length>0)&&<div className="analysis-section"><div className="section-label">Today's signals</div><div className="tags-row">{result.stressTags?.map((t,i)=><span key={i} className="tag tag-stress">↑ {t}</span>)}{result.joyTags?.map((t,i)=><span key={i} className="tag tag-joy">✦ {t}</span>)}</div></div>}
         {result.insight&&<div className="analysis-section"><div className="section-label">Observation</div><div className="insight-box">"{result.insight}"</div></div>}
       </>}
-{result?.error&&<div className="entry-card"><div className="entry-prompt">{result.rateLimit?"You've used all 10 reflections for today — come back tomorrow 🌙":"Couldn't parse that — try again or check your connection."}</div></div>}    </>}
+{result?.error&&<div className="entry-card"><div className="entry-prompt">{result.rateLimit?"You've used all 5 reflections this month":"Couldn't parse that — try again or check your connection."}</div></div>}    </>}
 
     {/* ── TASKS ── */}
     {tab==="tasks"&&<>
