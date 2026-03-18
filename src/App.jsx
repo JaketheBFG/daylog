@@ -922,7 +922,13 @@ const habitDays=isMobile?lastNDays(7):last28Days();
 
     {/* ── PATTERNS ── */}
     {tab==="patterns"&&<>
+      {!isPro&&<div style={{background:"var(--amber-dim)",border:"1px solid rgba(200,136,42,0.3)",borderRadius:14,padding:"20px",marginBottom:16,textAlign:"center"}}>
+        <div style={{fontFamily:"Playfair Display,serif",fontSize:16,color:"var(--cream)",marginBottom:6}}>Patterns & Insights</div>
+        <p style={{fontSize:13,color:"var(--text-muted)",marginBottom:12}}>Upgrade to Pro to unlock full pattern analysis, stressor tracking, and weekly digests.</p>
+        <button onClick={()=>setShowUpgrade(true)} style={{padding:"10px 20px",borderRadius:10,background:"var(--amber)",border:"none",color:"#0e0c0a",fontFamily:"DM Sans,sans-serif",fontSize:13,fontWeight:500,cursor:"pointer"}}>Unlock with Pro ✦</button>
+      </div>}
       <div className="date-header"><div className="date-label">your patterns</div><div className="date-main">{monthYear}</div></div>
+      <div style={{filter:isPro?"none":"blur(3px)",pointerEvents:isPro?"auto":"none",userSelect:isPro?"auto":"none"}}>
       <div className="section-label" style={{marginBottom:14}}>This week</div>
       <div className="week-grid" style={{marginBottom:28}}>
         {weekDates.map((d,i)=>{ const hasEntry=entries.some(e=>e.date===d); const mobj=moodForDay(d)?MOODS[moodForDay(d)-1]:null; return <div key={d} className={`day-cell ${hasEntry?"has-entry":""} ${d===todayStr?"active":""}`}><div className="dc-name">{WEEK_DAYS[i]}</div><div className="dc-dot" style={mobj?{background:mobj.color}:{}}/>{mobj&&<div className="dc-mood">{mobj.emoji}</div>}</div>; })}
@@ -942,6 +948,7 @@ const habitDays=isMobile?lastNDays(7):last28Days();
 <div className="pattern-card"><h3>Consistent stressors</h3><p style={{marginBottom:16}}>What comes up most when you're feeling friction.</p>{STRESS_PATTERNS.length===0?<div style={{fontSize:13,color:"var(--text-dim)",fontStyle:"italic"}}>No patterns yet — keep journaling and they'll appear here.</div>:<div className="bar-chart">{STRESS_PATTERNS.map(p=><div key={p.label} className="bar-row"><div className="bar-label">{p.label}</div><div className="bar-track"><div className="bar-fill stress" style={{width:`${p.pct}%`}}/></div><div className="bar-pct">{p.count}x</div></div>)}</div>}</div>
       <div className="pattern-card"><h3>What lights you up</h3><p style={{marginBottom:16}}>Things consistently tied to your better days.</p>{JOY_PATTERNS.length===0?<div style={{fontSize:13,color:"var(--text-dim)",fontStyle:"italic"}}>No patterns yet — keep journaling and they'll appear here.</div>:<div className="bar-chart">{JOY_PATTERNS.map(p=><div key={p.label} className="bar-row"><div className="bar-label">{p.label}</div><div className="bar-track"><div className="bar-fill joy" style={{width:`${p.pct}%`}}/></div><div className="bar-pct">{p.count}x</div></div>)}</div>}</div>
       <div className="summary-card"><div className="summary-month">Monthly summary · {monthYear}</div>{monthlySummary?<div className="summary-text">{monthlySummary}</div>:<><div className="summary-text" style={{marginBottom:12}}>Generate a personal summary of your month based on your real entries.</div><button className="digest-gen-btn" onClick={handleGenerateMonthlySummary} disabled={generatingMonthlySummary||entries.length===0}>{generatingMonthlySummary?<><div className="loading-dots" style={{padding:0}}><span/><span/><span/></div> Writing your summary...</>:<><span>✦</span> Generate monthly summary</>}</button></>}</div>
+     </div>
     </>}
 
     {/* ── HISTORY ── */}
