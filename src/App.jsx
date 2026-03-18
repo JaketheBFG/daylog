@@ -413,6 +413,7 @@ const [selectedDate,setSelectedDate]=useState(todayStr);
   const [patternPeriod,setPatternPeriod]=useState("month");
   const [isPro,setIsPro]=useState(false);
   const [showSettings,setShowSettings]=useState(false);
+  const [showUpgrade,setShowUpgrade]=useState(false);
   const [expandedEntry,setExpandedEntry]=useState(null);
   const [searchQuery,setSearchQuery]=useState("");
 const [editingEntry,setEditingEntry]=useState(null);
@@ -982,5 +983,23 @@ const habitDays=isMobile?lastNDays(7):last28Days();
       </div>; })}
     </>}
 
+  {showUpgrade&&<>
+    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.7)",zIndex:200,backdropFilter:"blur(4px)"}} onClick={()=>setShowUpgrade(false)}/>
+    <div style={{position:"fixed",top:"50%",left:"50%",transform:"translate(-50%,-50%)",zIndex:201,background:"var(--surface)",border:"1px solid var(--border)",borderRadius:20,padding:"32px 24px",width:"calc(100vw - 48px)",maxWidth:380,textAlign:"center"}}>
+      <div style={{fontSize:32,marginBottom:12}}>✦</div>
+      <div style={{fontFamily:"Playfair Display,serif",fontSize:24,color:"var(--cream)",marginBottom:8}}>Throughline Pro</div>
+      <p style={{fontSize:14,color:"var(--text-muted)",lineHeight:1.65,marginBottom:24}}>Unlock unlimited entries, 30 AI reflections per month, full pattern insights, and weekly digests.</p>
+      <div style={{background:"var(--surface2)",borderRadius:14,padding:"16px",marginBottom:20}}>
+        {[["✦","30 AI reflections/month"],["📈","Full patterns & insights"],["📓","Unlimited entries"],["🗓","Weekly & monthly digests"]].map(([icon,label])=>(
+          <div key={label} style={{display:"flex",alignItems:"center",gap:10,padding:"6px 0",fontSize:13,color:"var(--text-muted)",textAlign:"left"}}>
+            <span>{icon}</span><span>{label}</span>
+          </div>
+        ))}
+      </div>
+      <button style={{width:"100%",padding:"14px",borderRadius:12,background:"var(--amber)",border:"none",color:"#0e0c0a",fontFamily:"DM Sans,sans-serif",fontSize:15,fontWeight:500,cursor:"pointer",marginBottom:10}}>$4.99/month — Coming soon</button>
+      <button style={{width:"100%",padding:"14px",borderRadius:12,background:"transparent",border:"1px solid var(--border)",color:"var(--text-muted)",fontFamily:"DM Sans,sans-serif",fontSize:14,cursor:"pointer",marginBottom:16}}>$34.99/year — Coming soon</button>
+      <button onClick={()=>setShowUpgrade(false)} style={{background:"none",border:"none",color:"var(--text-dim)",fontFamily:"DM Sans,sans-serif",fontSize:13,cursor:"pointer"}}>Maybe later</button>
+    </div>
+  </>}
   </div></>);
 }
