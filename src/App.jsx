@@ -604,7 +604,7 @@ const handleGenerateDigest=async()=>{ setGeneratingDigest(true); try{ const d=aw
     try{
 const parsed=await analyzeEntry(text,subTodos,subLearned,subGratitude,session.user.id,isPro);      setResult(parsed); setTodos(parsed.todos||[]);
 const entry={date:selectedDate,mood:todayMood,text,todos:parsed.todos||[],stress_tags:parsed.stressTags||[],joy_tags:parsed.joyTags||[],stress_categories:parsed.stressCategories||[],joy_categories:parsed.joyCategories||[],insight:parsed.insight||"",user_id:session.user.id};      const {data}=await supabase.from("entries").insert(entry).select().single();
-      if(data) setEntries(p=>[{...data,stressTags:data.stress_tags||[],joyTags:data.joy_tags||[]},...p]);
+      if(data) setEntries(p=>[{...data,stressTags:data.stress_tags||[],joyTags:data.joy_tags||[],stressCategories:data.stress_categories||[],joyCategories:data.joy_categories||[]},...p]);
       if(parsed.todos?.length){
         const newTasks=parsed.todos.map(t=>({text:t,done:false,source:"entry",source_date:selectedDate,added_date:selectedDate,group_id:null,user_id:session.user.id}));
         const {data:td}=await supabase.from("tasks").insert(newTasks).select();
