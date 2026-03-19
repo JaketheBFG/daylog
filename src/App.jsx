@@ -140,10 +140,10 @@ const STYLES = `
   /* ── PATTERNS ── */
   .week-grid { display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); gap:3px; margin-bottom:28px; }  .day-cell { border-radius:8px; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:6px 2px; gap:2px; cursor:pointer; transition:transform 0.15s; border:1px solid transparent; background:var(--surface); min-width:0; overflow:hidden; }  .day-cell:hover { transform:scale(1.05); }
   .day-cell.active { border-color:var(--amber); }
-  .dc-name { font-size:9px; font-weight:500; letter-spacing:0.5px; text-transform:uppercase; color:var(--text-muted); }
-  .dc-dot { width:9px; height:9px; border-radius:50%; background:var(--border); }
+  .dc-name { font-size:8px; font-weight:500; letter-spacing:0.5px; text-transform:uppercase; color:var(--text-muted); }
+  .dc-dot { width:7px; height:7px; border-radius:50%; background:var(--border); }
   .day-cell.has-entry .dc-dot { background:var(--amber-soft); }
-  .dc-mood { font-size:13px; margin-top:1px; }
+  .dc-mood { font-size:11px; margin-top:1px; }
   .pattern-card { background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:20px; margin-bottom:14px; }
   .pattern-card h3 { font-family:'Playfair Display',serif; font-size:18px; color:var(--cream); margin-bottom:6px; }
   .pattern-card p { font-size:13px; color:var(--text-muted); line-height:1.6; }
@@ -940,7 +940,7 @@ const habitDays=isMobile?lastNDays(7):last28Days();
       <div className="date-header"><div className="date-label">your patterns</div><div className="date-main">{monthYear}</div></div>
       <div style={{filter:isPro?"none":"blur(3px)",pointerEvents:isPro?"auto":"none",userSelect:isPro?"auto":"none"}}>
       <div className="section-label" style={{marginBottom:14}}>This week</div>
-      <div className="week-grid" style={{margin:"0 -24px 28px",padding:"0 24px"}}>
+      <div className="week-grid" style={{marginBottom:28}}>
         {weekDates.map((d,i)=>{ const hasEntry=entries.some(e=>e.date===d); const mobj=moodForDay(d)?MOODS[moodForDay(d)-1]:null; return <div key={d} className={`day-cell ${hasEntry?"has-entry":""} ${d===todayStr?"active":""}`}><div className="dc-name">{WEEK_DAYS[i]}</div><div className="dc-dot" style={mobj?{background:mobj.color}:{}}/>{mobj&&<div className="dc-mood">{mobj.emoji}</div>}</div>; })}
       </div>
       <div className="pattern-card">
