@@ -500,7 +500,7 @@ if(hash.includes("type=recovery") || query.includes("type=recovery")) setAuthMod
         supabase.from("goals").select("*").eq("user_id",uid).order("created_at",{ascending:true}),
         supabase.from("profiles").select("*").eq("id",uid).single(),
       ]);
-      if(entriesRes.data?.length) setEntries(entriesRes.data.map(e=>({...e,todos:e.todos||[],stressTags:e.stress_tags||[],joyTags:e.joy_tags||[]})));
+      if(entriesRes.data?.length) setEntries(entriesRes.data.map(e=>({...e,todos:e.todos||[],stressTags:e.stress_tags||[],joyTags:e.joy_tags||[],stressCategories:e.stress_categories||[],joyCategories:e.joy_categories||[]})));
       if(tasksRes.data?.length) setAllTasks(tasksRes.data.map(t=>({...t,groupId:t.group_id,sourceDate:t.source_date,addedDate:t.added_date})));
       if(habitsRes.data?.length) setHabits(habitsRes.data.map(h=>({...h,checked:h.checked||{}})));
      if(goalsRes.data?.length) setGoals(goalsRes.data);
