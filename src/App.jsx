@@ -940,8 +940,10 @@ const habitDays=isMobile?lastNDays(7):last28Days();
       <div className="date-header"><div className="date-label">your patterns</div><div className="date-main">{monthYear}</div></div>
       <div style={{filter:isPro?"none":"blur(3px)",pointerEvents:isPro?"auto":"none",userSelect:isPro?"auto":"none"}}>
       <div className="section-label" style={{marginBottom:14}}>This week</div>
-      <div className="week-grid" style={{marginBottom:28,marginLeft:"-24px",marginRight:"-24px",paddingLeft:"24px",paddingRight:"24px"}}>
+      <div style={{overflowX:"auto",marginBottom:28,marginLeft:"-24px",marginRight:"-24px",paddingLeft:"24px",paddingRight:"24px"}}>
+<div className="week-grid" style={{minWidth:280}}>
         {weekDates.map((d,i)=>{ const hasEntry=entries.some(e=>e.date===d); const mobj=moodForDay(d)?MOODS[moodForDay(d)-1]:null; return <div key={d} className={`day-cell ${hasEntry?"has-entry":""} ${d===todayStr?"active":""}`}><div className="dc-name">{WEEK_DAYS[i]}</div><div className="dc-dot" style={mobj?{background:mobj.color}:{}}/>{mobj&&<div className="dc-mood">{mobj.emoji}</div>}</div>; })}
+      </div>
       </div>
       <div className="pattern-card">
         <h3>Mood this week</h3><p style={{marginBottom:16}}>How you've been feeling day to day.</p>
