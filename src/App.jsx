@@ -138,8 +138,8 @@ const STYLES = `
   .empty-state { text-align:center; padding:40px 24px; color:var(--text-dim); font-style:italic; font-size:14px; }
 
   /* ── PATTERNS ── */
-  .week-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:8px; margin-bottom:28px; }
-  .day-cell { aspect-ratio:1; border-radius:10px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; cursor:pointer; transition:transform 0.15s; border:1px solid transparent; background:var(--surface); }
+  .week-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:4px; margin-bottom:28px; }
+  .day-cell { aspect-ratio:1; border-radius:8px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; cursor:pointer; transition:transform 0.15s; border:1px solid transparent; background:var(--surface); min-width:0; overflow:hidden; }
   .day-cell:hover { transform:scale(1.05); }
   .day-cell.active { border-color:var(--amber); }
   .dc-name { font-size:9px; font-weight:500; letter-spacing:0.5px; text-transform:uppercase; color:var(--text-muted); }
