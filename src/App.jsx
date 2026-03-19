@@ -599,7 +599,7 @@ const handleSuggestGoals=async()=>{ setSuggestingGoals(true); try{ const s=await
 const handleGenerateDigest=async()=>{ setGeneratingDigest(true); try{ const d=await generateWeeklyDigest(entries,userName,session.user.id,isPro); setDigest(d); }catch(e){} setGeneratingDigest(false); };
   // ── Entry analysis ──
   const handleAnalyze=async()=>{
-    if(!text.trim()||!session)return;
+    if(!text.trim()||!session){ console.log("blocked - text:", text.trim(), "session:", session); return; }
     setLoading(true); setResult(null);
     try{
 const parsed=await analyzeEntry(text,subTodos,subLearned,subGratitude,session.user.id,isPro);      setResult(parsed); setTodos(parsed.todos||[]);
