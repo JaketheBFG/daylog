@@ -341,7 +341,7 @@ async function callClaude(prompt,maxTokens=1000,userId=null,isPro=false){
   return (data.content?.find(b=>b.type==="text")?.text||"{}").replace(/```json|```/g,"").trim();
 }
 
-async function analyzeEntry(text,subTodos,subLearned,subGratitude,userId=null){ 
+async function analyzeEntry(text,subTodos,subLearned,subGratitude,userId=null,isPro=false){ 
   const extra = [subTodos&&`TO-DOS SECTION: ${subTodos}`,subLearned&&`THINGS I LEARNED: ${subLearned}`,subGratitude&&`GRATITUDE: ${subGratitude}`].filter(Boolean).join("\n");
   const fullText = extra ? `${text}\n\n${extra}` : text;
   const STRESS_CATS = ["Work","Relationships","Health","Finance","Sleep","Family","Social","Commute","Technology","Time pressure"];
