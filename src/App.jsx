@@ -475,7 +475,7 @@ const [editingText,setEditingText]=useState("");
 const query = window.location.search;
 if(hash.includes("type=recovery") || query.includes("type=recovery")) setAuthMode("reset");
     const {data:{subscription}}=supabase.auth.onAuthStateChange((event,session)=>{
-      if(event==="PASSWORD_RECOVERY"){ setAuthMode("reset"); return; }
+      if(event==="PASSWORD_RECOVERY"){ setSession(null); setAuthMode("reset"); return; }
       setSession(session);
       if(session){
         const meta = session.user.user_metadata;
