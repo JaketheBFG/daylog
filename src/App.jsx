@@ -16,7 +16,7 @@ const STYLES = `
     --rose:#c4605a; --rose-dim:#3a1a18; --sage:#6a9e78; --sage-dim:#1a2e20;
     --sky:#6a9ec4; --sky-dim:#1a2a3a; --cream:#f0e8d8;
   }
-  body { background:var(--bg); color:var(--text); font-family:'DM Sans',sans-serif; font-weight:300; min-height:100vh; overflow-x:hidden; display:flex; justify-content:center; }
+  body { background:var(--bg); color:var(--text); font-family:'DM Sans',sans-serif; font-weight:300; min-height:100vh; min-height:100dvh; overflow-x:hidden; display:flex; justify-content:center; padding-top:env(safe-area-inset-top); padding-bottom:env(safe-area-inset-bottom); padding-left:env(safe-area-inset-left); padding-right:env(safe-area-inset-right); }
   .grain { position:fixed; inset:0; pointer-events:none; z-index:100; opacity:0.03; background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E"); }
   .glow { position:fixed; width:600px; height:600px; border-radius:50%; background:radial-gradient(circle,rgba(200,136,42,0.06) 0%,transparent 70%); pointer-events:none; top:-200px; left:50%; transform:translateX(-50%); }
   .app { max-width:720px; width:100%; padding:0 24px 80px; }  @keyframes fadeUp { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:none} }
@@ -176,44 +176,23 @@ const STYLES = `
   .summary-month { font-family:'Playfair Display',serif; font-style:italic; font-size:13px; color:var(--amber-soft); margin-bottom:8px; }
   .summary-text { font-size:14px; line-height:1.75; color:var(--text); }
 
-  /* ── TASKS ── */
-  .tasks-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:20px; }
-  .tasks-filters { display:flex; gap:4px; }
-  .filter-pill { padding:5px 12px; border-radius:20px; font-size:12px; cursor:pointer; border:1px solid var(--border); background:transparent; color:var(--text-muted); font-family:'DM Sans',sans-serif; transition:all 0.15s; }
-  .filter-pill.active { background:var(--surface2); color:var(--text); border-color:var(--text-dim); }
-  .add-task-row { display:flex; gap:8px; margin-bottom:20px; flex-wrap:wrap; }
-  .add-task-input { flex:1; background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:11px 14px; color:var(--text); font-family:'DM Sans',sans-serif; font-size:14px; font-weight:300; outline:none; transition:border-color 0.2s; }
-  .add-task-input::placeholder { color:var(--text-dim); }
-  .add-task-input:focus { border-color:var(--amber); }
-.task-item { display:flex; align-items:flex-start; gap:10px; background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:13px 14px; margin-bottom:8px; transition:opacity 0.2s; animation:fadeUp 0.25s ease; min-width:0; overflow:hidden; }  .task-item.done-item { opacity:0.45; }
-  .task-content { flex:1; min-width:0; }
-  .task-text { font-size:14px; line-height:1.5; }
-  .task-text.done { text-decoration:line-through; color:var(--text-muted); }
-  .task-meta { display:flex; align-items:center; gap:8px; margin-top:5px; }
-  .task-source { font-size:11px; color:var(--text-dim); font-style:italic; }
-  .task-delete { background:none; border:none; color:var(--text-dim); cursor:pointer; font-size:16px; line-height:1; padding:0 2px; transition:color 0.15s; flex-shrink:0; }
-  .task-delete:hover { color:var(--rose); }
-  .tasks-count { font-size:12px; color:var(--text-dim); }
-  .group-bar { display:flex; align-items:center; gap:8px; margin-bottom:20px; flex-wrap:wrap; }
-  .group-chip { display:flex; align-items:center; gap:6px; padding:6px 12px; border-radius:20px; font-size:12px; border:1.5px solid var(--border); background:var(--surface); color:var(--text-muted); font-family:'DM Sans',sans-serif; }
-  .chip-dot { width:7px; height:7px; border-radius:50%; flex-shrink:0; }
-  .chip-count { font-size:10px; background:var(--surface2); border-radius:10px; padding:1px 6px; color:var(--text-dim); }
-  .group-chip-del { background:none; border:none; color:var(--text-dim); cursor:pointer; font-size:14px; line-height:1; padding:0; margin-left:2px; transition:color 0.15s; }
-  .group-chip-del:hover { color:var(--rose); }
-  .add-group-btn { padding:6px 12px; border-radius:20px; font-size:12px; cursor:pointer; border:1.5px dashed var(--border); background:transparent; color:var(--text-dim); font-family:'DM Sans',sans-serif; transition:all 0.15s; }
-  .add-group-btn:hover { color:var(--text); border-color:var(--text-muted); }
-  .new-group-row { display:flex; gap:8px; margin-bottom:16px; animation:fadeUp 0.2s ease; }
-  .new-group-input { flex:1; background:var(--surface); border:1px solid var(--amber); border-radius:10px; padding:9px 14px; color:var(--text); font-family:'DM Sans',sans-serif; font-size:13px; font-weight:300; outline:none; }
-  .new-group-input::placeholder { color:var(--text-dim); }
-  .task-group-select { background:var(--surface2); border:1px solid var(--border); border-radius:8px; padding:5px 8px; color:var(--text-muted); font-family:'DM Sans',sans-serif; font-size:11px; outline:none; cursor:pointer; }
-  .group-section { margin-bottom:24px; }
-  .group-header { display:flex; align-items:center; gap:10px; margin-bottom:10px; cursor:pointer; user-select:none; }
-  .group-header-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
-  .group-header-name { font-size:11px; font-weight:500; letter-spacing:1.5px; text-transform:uppercase; color:var(--text-muted); }
-  .group-header-count { font-size:11px; color:var(--text-dim); }
-  .group-header-chevron { font-size:10px; color:var(--text-dim); transition:transform 0.2s; }
-  .group-header-chevron.open { transform:rotate(90deg); }
-  .group-header-line { flex:1; height:1px; background:var(--border); }
+  /* ── PLAN ── */
+  .plan-input-area { width:100%; background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:14px 16px; color:var(--text); font-family:'DM Sans',sans-serif; font-size:15px; font-weight:300; outline:none; transition:border-color 0.2s; resize:none; line-height:1.6; }
+  .plan-input-area:focus { border-color:var(--amber); }
+  .plan-input-area::placeholder { color:var(--text-dim); }
+  .plan-card { background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:22px 24px; margin-bottom:16px; animation:fadeUp 0.3s ease; }
+  .plan-intention { font-family:'Playfair Display',serif; font-size:21px; color:var(--cream); line-height:1.4; margin-bottom:22px; font-style:italic; }
+  .plan-section-label { font-size:10px; letter-spacing:1.5px; text-transform:uppercase; color:var(--text-dim); font-weight:500; margin-bottom:10px; }
+  .plan-priority { display:flex; align-items:flex-start; gap:12px; padding:10px 0; border-bottom:1px solid var(--border); }
+  .plan-priority:last-child { border-bottom:none; }
+  .plan-priority-num { font-size:11px; color:var(--amber); font-weight:500; flex-shrink:0; padding-top:3px; min-width:14px; }
+  .plan-priority-text { font-size:14px; color:var(--text); line-height:1.5; }
+  .plan-todo-item { display:flex; align-items:flex-start; gap:10px; padding:9px 0; border-bottom:1px solid var(--border); }
+  .plan-todo-item:last-child { border-bottom:none; }
+  .plan-todo-text { font-size:14px; color:var(--text); line-height:1.5; flex:1; }
+  .plan-todo-text.done { text-decoration:line-through; color:var(--text-muted); }
+  .plan-note { font-size:14px; color:var(--text-muted); line-height:1.7; font-style:italic; padding:14px 16px; background:var(--surface2); border-radius:10px; margin-top:4px; }
+  .plan-divider { height:1px; background:var(--border); margin:18px 0; }
   /* ── SUBSECTIONS ── */
   .subsection-toggle { display:flex; align-items:center; gap:10px; padding:12px 0; cursor:pointer; border-top:1px solid var(--border); user-select:none; }
   .subsection-toggle:first-of-type { margin-top:8px; }
@@ -296,7 +275,6 @@ const MOODS = [
   {emoji:"😄",label:"great", score:5,color:"#3a8a6a"},
 ];
 const HABIT_COLORS = ["#6a9e78","#7a9ec4","#c4a45a","#a47ac4","#c4705a","#5ab4c4"];
-const GROUP_COLORS = ["#7a9ec4","#c4a45a","#a47ac4","#6a9e78","#c4705a","#5ab4c4","#c4905a","#9ec47a"];
 const WEEK_DAYS = ["M","T","W","T","F","S","S"];
 const OB_TIMES = [
   {emoji:"🌅",label:"Morning", sub:"Start the day with intention", value:"morning"},
@@ -305,7 +283,6 @@ const OB_TIMES = [
   {emoji:"🌙",label:"Night",   sub:"Before sleep ritual",          value:"night"},
 ];
 
-const DEFAULT_GROUPS  = [{id:"work",name:"Work",color:"#7a9ec4"},{id:"errands",name:"Errands",color:"#c4a45a"},{id:"social",name:"Friends & Social",color:"#a47ac4"},{id:"health",name:"Health",color:"#6a9e78"}];
 
 function last28Days(){ return Array.from({length:28},(_,i)=>{ const d=new Date(); d.setDate(d.getDate()-(27-i)); return d.toISOString().split("T")[0]; }); }
 function lastNDays(n){ return Array.from({length:n},(_,i)=>{ const d=new Date(); d.setDate(d.getDate()-(n-1-i)); return d.toISOString().split("T")[0]; }); }
@@ -356,6 +333,7 @@ Entry:\n${fullText}`,1000,userId,isPro));
 }
 async function suggestGoals(entries,userId=null,isPro=false){ return JSON.parse(await callClaude(`Suggest 3 personal growth goals based on these journal entries. Focus on happiness and wellbeing, NOT productivity.\n${entries.slice(0,5).map(e=>`${e.date}: ${e.text}`).join("\n")}\nRespond ONLY with valid JSON array:\n[{"title":"goal","why":"reason","icon":"emoji"}]`,1000,userId,isPro)); }async function generateMonthlySummary(entries,userName,userId=null,isPro=false){ return JSON.parse(await callClaude(`Write a warm monthly summary for ${userName||"this person"} based on their journal entries this month.\nEntries:\n${entries.slice(0,20).map(e=>`${e.date}: ${e.text}`).join("\n\n")}\nRespond ONLY with valid JSON:\n{"summary":"2-3 sentence warm paragraph summarizing their month, patterns, and growth"}`,600,userId,isPro)); }
 async function generateWeeklyDigest(entries,userName,userId=null,isPro=false){ return JSON.parse(await callClaude(`Write a personal weekly reflection for ${userName||"this person"}.\nEntries:\n${entries.slice(0,7).map(e=>`${e.date} (mood ${e.mood||"?"}/5): ${e.text}`).join("\n\n")}\nRespond ONLY with valid JSON:\n{"headline":"evocative sentence","highlight":"best moment","pattern":"recurring observation","nudge":"one kind suggestion for next week"}`,800,userId,isPro)); }
+async function generateDayPlan(input,userName,userId=null,isPro=false){ return JSON.parse(await callClaude(`Help ${userName||"this person"} plan their day. Based on what they shared, create a focused, grounded day plan.\nRespond ONLY with valid JSON:\n{"intention":"one evocative sentence to hold through the day","priorities":["most important thing","second priority","third priority"],"todos":["specific action","specific action"],"note":"one warm closing nudge or encouragement"}\nWhat they shared:\n${input}`,800,userId,isPro)); }
 export default function App() {
   // Auth
   const [session, setSession] = useState(null);
@@ -394,16 +372,13 @@ export default function App() {
   const todayStr=new Date().toISOString().split("T")[0];
 const [selectedDate,setSelectedDate]=useState(todayStr);
 
-  // Tasks
-  const [allTasks,setAllTasks]=useState([]);
-  const [taskFilter,setTaskFilter]=useState("open");
-  const [newTaskText,setNewTaskText]=useState("");
-  const [newTaskGroup,setNewTaskGroup]=useState("");
-  const [groups,setGroups]=useState(DEFAULT_GROUPS);
-  const [addingGroup,setAddingGroup]=useState(false);
-  const [newGroupName,setNewGroupName]=useState("");
-  const [collapsedGroups,setCollapsedGroups]=useState({});
-  const newGroupInputRef=useRef(null);
+  // Plan
+  const [planInput,setPlanInput]=useState("");
+  const [planLoading,setPlanLoading]=useState(false);
+  const [dayPlan,setDayPlan]=useState(null);
+  const [planTodos,setPlanTodos]=useState([]);
+  const [planRecording,setPlanRecording]=useState(false);
+  const planRecognitionRef=useRef(null);
 
   // Habits
   const [habits,setHabits]=useState([]);
@@ -432,7 +407,11 @@ const [editingText,setEditingText]=useState("");
   const [monthlySummary,setMonthlySummary]=useState(null);
   const [generatingMonthlySummary,setGeneratingMonthlySummary]=useState(false);
 
-  useEffect(()=>{ if(addingGroup&&newGroupInputRef.current) newGroupInputRef.current.focus(); },[addingGroup]);
+  // ── Load plan from localStorage ──
+  useEffect(()=>{
+    const saved=localStorage.getItem(`dayplan_${todayStr}`);
+    if(saved){ try{ const p=JSON.parse(saved); setDayPlan(p.plan); setPlanTodos(p.todos||[]); }catch(e){} }
+  },[]);
 
   // ── Notifications ──
   useEffect(()=>{
@@ -493,15 +472,13 @@ if(hash.includes("type=recovery") || query.includes("type=recovery")) setAuthMod
     async function loadAll(){
       setDbLoading(true);
       const uid = session.user.id;
-      const [entriesRes,tasksRes,habitsRes,goalsRes,profileRes]=await Promise.all([
+      const [entriesRes,habitsRes,goalsRes,profileRes]=await Promise.all([
         supabase.from("entries").select("*").eq("user_id",uid).order("date",{ascending:false}),
-        supabase.from("tasks").select("*").eq("user_id",uid).order("created_at",{ascending:true}),
         supabase.from("habits").select("*").eq("user_id",uid).order("created_at",{ascending:true}),
         supabase.from("goals").select("*").eq("user_id",uid).order("created_at",{ascending:true}),
         supabase.from("profiles").select("*").eq("id",uid).single(),
       ]);
       if(entriesRes.data?.length) setEntries(entriesRes.data.map(e=>({...e,todos:e.todos||[],stressTags:e.stress_tags||[],joyTags:e.joy_tags||[],stressCategories:e.stress_categories||[],joyCategories:e.joy_categories||[]})));
-      if(tasksRes.data?.length) setAllTasks(tasksRes.data.map(t=>({...t,groupId:t.group_id,sourceDate:t.source_date,addedDate:t.added_date})));
       if(habitsRes.data?.length) setHabits(habitsRes.data.map(h=>({...h,checked:h.checked||{}})));
      if(goalsRes.data?.length) setGoals(goalsRes.data);
       if(profileRes.data) setIsPro(profileRes.data.is_pro && (!profileRes.data.pro_expires_at || new Date(profileRes.data.pro_expires_at) > new Date()));
@@ -543,7 +520,7 @@ const {error}=await supabase.auth.resetPasswordForEmail(authEmail,{redirectTo:"h
   };
   const handleSignOut = async()=>{
     await supabase.auth.signOut();
-    setSession(null); setEntries([]); setAllTasks([]); setHabits([]); setGoals([]);
+    setSession(null); setEntries([]); setHabits([]); setGoals([]);
     setObDone(false); setUserName(""); setPreferredTime("");
   };
 
@@ -553,21 +530,26 @@ const {error}=await supabase.auth.resetPasswordForEmail(authEmail,{redirectTo:"h
     setObDone(true);
   };
 
-  // ── Task helpers ──
-  const addManualTask=async()=>{
-    if(!newTaskText.trim()||!session)return;
-    const t={text:newTaskText.trim(),done:false,source:"manual",added_date:selectedDate,group_id:newTaskGroup||null,user_id:session.user.id};
-    const {data}=await supabase.from("tasks").insert(t).select().single();
-    if(data) setAllTasks(p=>[...p,{...data,groupId:data.group_id,addedDate:data.added_date}]);
-    setNewTaskText("");
+  // ── Plan helpers ──
+  const handleGeneratePlan=async()=>{
+    if(!planInput.trim()||!session)return;
+    setPlanLoading(true);
+    try{
+      const plan=await generateDayPlan(planInput,userName,session.user.id,isPro);
+      const todos=(plan.todos||[]).map(t=>({text:t,done:false}));
+      setDayPlan(plan); setPlanTodos(todos);
+      localStorage.setItem(`dayplan_${todayStr}`,JSON.stringify({plan,todos}));
+    }catch(e){}
+    setPlanLoading(false);
   };
-  const addGroup=()=>{ if(!newGroupName.trim())return; const id=newGroupName.toLowerCase().replace(/\s+/g,"-")+"-"+Date.now(); setGroups(p=>[...p,{id,name:newGroupName.trim(),color:GROUP_COLORS[groups.length%GROUP_COLORS.length]}]); setNewGroupName(""); setAddingGroup(false); };
-  const deleteGroup=(gid)=>{ setGroups(p=>p.filter(g=>g.id!==gid)); setAllTasks(p=>p.map(t=>t.groupId===gid?{...t,groupId:null}:t)); supabase.from("tasks").update({group_id:null}).eq("group_id",gid).eq("user_id",session.user.id); };
-  const toggleTask=async(id)=>{ setAllTasks(p=>p.map(t=>t.id===id?{...t,done:!t.done}:t)); const task=allTasks.find(t=>t.id===id); await supabase.from("tasks").update({done:!task.done}).eq("id",id); };
-  const deleteTask=async(id)=>{ setAllTasks(p=>p.filter(t=>t.id!==id)); await supabase.from("tasks").delete().eq("id",id); };
-  const setTaskGroup=async(id,gid)=>{ setAllTasks(p=>p.map(t=>t.id===id?{...t,groupId:gid||null}:t)); await supabase.from("tasks").update({group_id:gid||null}).eq("id",id); };
-  const toggleGroupCollapse=(gid)=>setCollapsedGroups(p=>({...p,[gid]:!p[gid]}));
-  const filteredTasks=allTasks.filter(t=>taskFilter==="open"?!t.done:taskFilter==="done"?t.done:true);
+  const togglePlanTodo=(i)=>setPlanTodos(p=>{
+    const next=p.map((t,idx)=>idx===i?{...t,done:!t.done}:t);
+    const saved=localStorage.getItem(`dayplan_${todayStr}`);
+    const parsed=saved?JSON.parse(saved):{};
+    localStorage.setItem(`dayplan_${todayStr}`,JSON.stringify({...parsed,todos:next}));
+    return next;
+  });
+  const resetPlan=()=>{ setDayPlan(null); setPlanInput(""); setPlanTodos([]); localStorage.removeItem(`dayplan_${todayStr}`); };
   const now=new Date();
   const periodStart=new Date(now);
   if(patternPeriod==="week") periodStart.setDate(now.getDate()-7);
@@ -605,11 +587,6 @@ const handleGenerateDigest=async()=>{ setGeneratingDigest(true); try{ const d=aw
 const parsed=await analyzeEntry(text,subTodos,subLearned,subGratitude,session.user.id,isPro);      setResult(parsed); setTodos(parsed.todos||[]);
 const entry={date:selectedDate,mood:todayMood,text,todos:parsed.todos||[],stress_tags:parsed.stressTags||[],joy_tags:parsed.joyTags||[],stress_categories:parsed.stressCategories||[],joy_categories:parsed.joyCategories||[],insight:parsed.insight||"",user_id:session.user.id};      const {data}=await supabase.from("entries").insert(entry).select().single();
       if(data) setEntries(p=>[{...data,stressTags:data.stress_tags||[],joyTags:data.joy_tags||[],stressCategories:data.stress_categories||[],joyCategories:data.joy_categories||[]},...p]);
-      if(parsed.todos?.length){
-        const newTasks=parsed.todos.map(t=>({text:t,done:false,source:"entry",source_date:selectedDate,added_date:selectedDate,group_id:null,user_id:session.user.id}));
-        const {data:td}=await supabase.from("tasks").insert(newTasks).select();
-        if(td) setAllTasks(p=>[...p,...td.map(t=>({...t,groupId:t.group_id,sourceDate:t.source_date,addedDate:t.added_date}))]);
-      }
     }catch(e){ setResult({error:true}); }
     setLoading(false);
   };
@@ -634,6 +611,17 @@ const entry={date:selectedDate,mood:todayMood,text,todos:parsed.todos||[],stress
     r.start();
     recognitionRef.current=r;
     setRecording(true);
+  };
+
+  const togglePlanVoice=()=>{
+    if(planRecording){ planRecognitionRef.current?.stop(); setPlanRecording(false); return; }
+    const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+    if(!SR){ alert("Voice input not supported on this device."); return; }
+    const r=new SR();
+    r.continuous=true; r.interimResults=false; r.lang="en-US";
+    r.onresult=(e)=>{ let f=""; for(let i=e.resultIndex;i<e.results.length;i++){ if(e.results[i].isFinal) f+=e.results[i][0].transcript+" "; } if(f) setPlanInput(p=>p+f); };
+    r.onend=()=>setPlanRecording(false);
+    r.start(); planRecognitionRef.current=r; setPlanRecording(true);
   };
 
  const weekDates=lastNDays(7);
@@ -793,17 +781,16 @@ const habitDays=isMobile?lastNDays(7):last28Days();
             <div style={{height:"1px",background:"var(--border)",margin:"4px 0"}}/>
             <button onClick={handleSignOut} style={{background:"none",border:"none",color:"var(--text-muted)",fontFamily:"DM Sans,sans-serif",fontSize:13,cursor:"pointer",textAlign:"left",padding:0}}>Sign out</button>
             <button onClick={async()=>{
-              if(!window.confirm("Delete your account? This will permanently delete all your entries, tasks, habits and goals. This cannot be undone.")) return;
+              if(!window.confirm("Delete your account? This will permanently delete all your entries, habits and goals. This cannot be undone.")) return;
               const uid=session.user.id;
               await Promise.all([
                 supabase.from("entries").delete().eq("user_id",uid),
-                supabase.from("tasks").delete().eq("user_id",uid),
                 supabase.from("habits").delete().eq("user_id",uid),
                 supabase.from("goals").delete().eq("user_id",uid),
                 supabase.from("profiles").delete().eq("id",uid),
               ]);
               await supabase.auth.signOut();
-              setSession(null); setEntries([]); setAllTasks([]); setHabits([]); setGoals([]);
+              setSession(null); setEntries([]); setHabits([]); setGoals([]);
             }} style={{background:"none",border:"none",color:"var(--rose)",fontFamily:"DM Sans,sans-serif",fontSize:13,cursor:"pointer",textAlign:"left",padding:0}}>Delete account</button>
           </div>
         </>}
@@ -811,7 +798,7 @@ const habitDays=isMobile?lastNDays(7):last28Days();
         <div className="nav-tabs">
           {[
             {id:"today",  label:"Today"},
-            {id:"tasks",  label:`Tasks${allTasks.filter(x=>!x.done).length?` (${allTasks.filter(x=>!x.done).length})`:""}`},
+            {id:"plan",   label:"Plan"},
             {id:"habits", label:"Habits & Goals"},
             {id:"patterns",label:"Patterns"},
             {id:"history",label:"History"},
@@ -887,36 +874,58 @@ const habitDays=isMobile?lastNDays(7):last28Days();
       </div>
       {loading&&<div className="entry-card"><div className="entry-prompt">Reading your day...</div><div className="loading-dots"><span/><span/><span/></div></div>}
       {result&&!result.error&&<>
-        {todos.length>0&&<div className="analysis-section"><div className="section-label">Tomorrow's to-dos</div><div className="todo-list">{todos.map((t,i)=><div key={i} className="todo-item" style={{display:"flex",alignItems:"center",gap:8}}><div className={`todo-check ${checkedTodos[i]?"done":""}`} onClick={()=>setCheckedTodos(p=>({...p,[i]:!p[i]}))}/><span className={`todo-text ${checkedTodos[i]?"done":""}`} style={{flex:1}}>{t}</span><select style={{background:"var(--surface2)",border:"1px solid var(--border)",borderRadius:6,padding:"3px 6px",color:"var(--text-muted)",fontFamily:"DM Sans,sans-serif",fontSize:11,outline:"none"}} value={checkedTodos[`group_${i}`]||""} onChange={async e=>{const gid=e.target.value;setCheckedTodos(p=>({...p,[`group_${i}`]:gid}));await supabase.from("tasks").update({group_id:gid||null}).eq("text",t).eq("user_id",session.user.id);}}><option value="">No group</option>{groups.map(g=><option key={g.id} value={g.id}>{g.name}</option>)}</select></div>)}</div></div>}
+        {todos.length>0&&<div className="analysis-section"><div className="section-label">Tomorrow's to-dos</div><div className="todo-list">{todos.map((t,i)=><div key={i} className="todo-item" style={{display:"flex",alignItems:"center",gap:8}}><div className={`todo-check ${checkedTodos[i]?"done":""}`} onClick={()=>setCheckedTodos(p=>({...p,[i]:!p[i]}))}/><span className={`todo-text ${checkedTodos[i]?"done":""}`} style={{flex:1}}>{t}</span></div>)}</div></div>}
         {(result.stressTags?.length>0||result.joyTags?.length>0)&&<div className="analysis-section"><div className="section-label">Today's signals</div><div className="tags-row">{result.stressTags?.map((t,i)=><span key={i} className="tag tag-stress">↑ {t}</span>)}{result.joyTags?.map((t,i)=><span key={i} className="tag tag-joy">✦ {t}</span>)}</div></div>}
         {result.insight&&<div className="analysis-section"><div className="section-label">Observation</div><div className="insight-box">"{result.insight}"</div></div>}
       </>}
 {result?.error&&<div className="entry-card"><div className="entry-prompt">{result.rateLimit?"You've used all 5 reflections this month":"Couldn't parse that — try again or check your connection."}</div></div>}    </>}
 
-    {/* ── TASKS ── */}
-    {tab==="tasks"&&<>
-      <div className="date-header"><div className="date-label">running list</div><div className="date-main">Tasks</div></div>
-      <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:16}}>
-        <div style={{display:"flex",gap:8}}>
-          <input className="add-task-input" style={{flex:1,minWidth:0}} placeholder="Add a task..." value={newTaskText} onChange={e=>setNewTaskText(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addManualTask()}/>
-          <button className="btn btn-primary" style={{flexShrink:0,whiteSpace:"nowrap"}} onClick={addManualTask} disabled={!newTaskText.trim()}>Add</button>
+    {/* ── PLAN ── */}
+    {tab==="plan"&&<>
+      <div className="date-header">
+        <div className="date-label">set your intention</div>
+        <div className="date-main">Plan Your Day</div>
+      </div>
+      {!dayPlan&&<>
+        <div className="entry-card">
+          <div className="entry-prompt">What's on your plate today? Speak or write freely — meetings, goals, anything weighing on you.</div>
+          <textarea className="plan-input-area" placeholder="Today I need to... I have a meeting about... I want to make sure I..." value={planInput} onChange={e=>setPlanInput(e.target.value)} rows={5}/>
+          <div className="entry-footer">
+            <span className="char-count">{planInput.length} characters</span>
+            <div className="entry-actions">
+              <button className={`btn btn-ghost ${planRecording?"recording":""}`} onClick={togglePlanVoice}>{planRecording&&<span className="rec-dot"/>}{planRecording?"Stop":"🎙 Speak"}</button>
+              <button className="btn btn-primary" onClick={handleGeneratePlan} disabled={!planInput.trim()||planLoading}>{planLoading?"Planning...":"Plan my day →"}</button>
+            </div>
+          </div>
         </div>
-        <select className="task-group-select" value={newTaskGroup} onChange={e=>setNewTaskGroup(e.target.value)} style={{width:"100%",padding:"10px 12px"}}><option value="">No group</option>{groups.map(g=><option key={g.id} value={g.id}>{g.name}</option>)}</select>
-      </div>
-      <div style={{marginBottom:12}}>
-        {!addingGroup&&<button className="add-group-btn" onClick={()=>setAddingGroup(true)}>+ New group</button>}
-      </div>
-      {addingGroup&&<div className="new-group-row"><input ref={newGroupInputRef} className="new-group-input" placeholder="Group name" value={newGroupName} onChange={e=>setNewGroupName(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")addGroup();if(e.key==="Escape"){setAddingGroup(false);setNewGroupName("");}}}/><button className="btn btn-primary" onClick={addGroup} disabled={!newGroupName.trim()}>Create</button><button className="btn btn-ghost" onClick={()=>{setAddingGroup(false);setNewGroupName("");}}>Cancel</button></div>}
-      <div className="tasks-header">
-        <div className="tasks-filters">{["open","all","done"].map(f=><button key={f} className={`filter-pill ${taskFilter===f?"active":""}`} onClick={()=>setTaskFilter(f)}>{f.charAt(0).toUpperCase()+f.slice(1)}{f==="open"&&allTasks.filter(t=>!t.done).length>0&&` · ${allTasks.filter(t=>!t.done).length}`}{f==="done"&&allTasks.filter(t=>t.done).length>0&&` · ${allTasks.filter(t=>t.done).length}`}</button>)}</div>
-        <span className="tasks-count">{filteredTasks.length} item{filteredTasks.length!==1?"s":""}</span>
-      </div>
-      {filteredTasks.length===0&&<div className="empty-state">{taskFilter==="open"?"All clear — nothing left to do.":"Nothing here yet."}</div>}
-      {(()=>{
-        const TI=({task})=><div className={`task-item ${task.done?"done-item":""}`}><div className={`todo-check ${task.done?"done":""}`} onClick={()=>toggleTask(task.id)}/><div className="task-content"><div className={`task-text ${task.done?"done":""}`}>{task.text}</div><div className="task-meta"><span className="task-source">{task.source==="entry"?`From ${task.sourceDate} entry`:"Added manually"}</span></div></div><button className="task-delete" onClick={()=>deleteTask(task.id)}>×</button></div>;
-        const sections=[...groups.map(g=>({id:g.id,name:g.name,color:g.color,tasks:filteredTasks.filter(t=>t.groupId===g.id)})),{id:"__ug__",name:"Ungrouped",color:"var(--text-dim)",tasks:filteredTasks.filter(t=>!t.groupId)}];
-        return sections.map(s=>{ const col=collapsedGroups[s.id]; return <div key={s.id} className="group-section"><div className="group-header" onClick={()=>toggleGroupCollapse(s.id)}><span className="group-header-dot" style={{background:s.color}}/><span className="group-header-name">{s.name}</span><span className="group-header-count">{s.tasks.length}</span><span className={`group-header-chevron ${col?"":"open"}`}>▶</span><span className="group-header-line"/></div>{!col&&<div className="group-tasks">{s.tasks.map(t=><TI key={t.id} task={t}/>)}</div>}</div>; });
-      })()}
+        {planLoading&&<div className="entry-card"><div className="entry-prompt">Building your plan...</div><div className="loading-dots"><span/><span/><span/></div></div>}
+      </>}
+      {dayPlan&&<>
+        <div className="plan-card">
+          <div className="plan-intention">"{dayPlan.intention}"</div>
+          {dayPlan.priorities?.length>0&&<>
+            <div className="plan-section-label">Priorities</div>
+            <div style={{marginBottom:20}}>
+              {dayPlan.priorities.map((p,i)=><div key={i} className="plan-priority">
+                <span className="plan-priority-num">{i+1}</span>
+                <span className="plan-priority-text">{p}</span>
+              </div>)}
+            </div>
+          </>}
+          {planTodos.length>0&&<>
+            <div className="plan-divider"/>
+            <div className="plan-section-label">To-dos</div>
+            <div style={{marginBottom:16}}>
+              {planTodos.map((t,i)=><div key={i} className="plan-todo-item">
+                <div className={`todo-check ${t.done?"done":""}`} onClick={()=>togglePlanTodo(i)}/>
+                <span className={`plan-todo-text ${t.done?"done":""}`}>{t.text}</span>
+              </div>)}
+            </div>
+          </>}
+          {dayPlan.note&&<div className="plan-note">{dayPlan.note}</div>}
+        </div>
+        <button className="btn btn-ghost" style={{marginTop:4}} onClick={resetPlan}>Re-plan →</button>
+      </>}
     </>}
 
     {/* ── HABITS & GOALS ── */}

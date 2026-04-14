@@ -48,8 +48,8 @@
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<false/>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>Throughline uses your microphone to transcribe voice journal entries.</string>
+	<string>Throughline uses your microphone to transcribe voice entries and plan your day by speaking.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
-	<string>Throughline uses speech recognition to convert your voice into journal entries.</string>
+	<string>Throughline uses speech recognition to convert your voice into journal entries and day plans.</string>
 </dict>
 </plist>
