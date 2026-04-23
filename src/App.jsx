@@ -93,6 +93,8 @@ const STYLES = `
   .date-header { margin-bottom:28px; }
   .date-label { font-family:'Playfair Display',serif; font-size:13px; font-style:italic; color:var(--text-muted); letter-spacing:0.5px; }
   .date-main { font-family:'Playfair Display',serif; font-size:34px; color:var(--cream); line-height:1.1; margin-top:4px; }
+  .streak-badge { display:inline-flex; align-items:center; gap:5px; background:var(--amber-dim); border:1px solid rgba(200,136,42,0.25); border-radius:20px; padding:5px 12px; font-size:12px; color:var(--amber-soft); font-weight:500; white-space:nowrap; }
+  .streak-badge-wrap { display:flex; align-items:center; justify-content:space-between; margin-bottom:4px; }
 
   /* ── MOOD ── */
   .mood-row { display:flex; align-items:center; gap:6px; margin-bottom:20px; flex-wrap:nowrap; }
@@ -393,6 +395,9 @@ const [selectedDate,setSelectedDate]=useState(todayStr);
   const [newGoalText,setNewGoalText]=useState("");
   const [addingGoal,setAddingGoal]=useState(false);
 
+  // Notifications
+  const [notifTime,setNotifTime]=useState("21:00");
+
   // Digest / Summary
   const [digest,setDigest]=useState(null);
   const [patternPeriod,setPatternPeriod]=useState("month");
@@ -415,28 +420,31 @@ const [editingText,setEditingText]=useState("");
   },[]);
 
   // ── Notifications ──
-  useEffect(()=>{
+  const scheduleNotification=async(time)=>{
     if(!window.Capacitor) return;
-    const setupNotifications=async()=>{
-      try {
-        const {LocalNotifications}=await import("@capacitor/local-notifications");
-        const {display}=await LocalNotifications.requestPermissions();
-        if(display==="granted"){
-          await LocalNotifications.cancel({notifications:[{id:1}]});
-          await LocalNotifications.schedule({notifications:[{
-            id:1,
-            title:"Time to reflect ✦",
-            body:"A few minutes of journaling can change your whole perspective.",
-            schedule:{on:{hour:21,minute:0}},
-            sound:null,
-            actionTypeId:"",
-            extra:null
-          }]});
-        }
-      } catch(e){ console.log("Notifications not available",e); }
-    };
-    setupNotifications();
-  },[]);
+    try{
+      const {LocalNotifications}=await import("@capacitor/local-notifications");
+      const {display}=await LocalNotifications.requestPermissions();
+      if(display==="granted"){
+        const [hour,minute]=(time||"21:00").split(":").map(Number);
+        await LocalNotifications.cancel({notifications:[{id:1}]});
+        await LocalNotifications.schedule({notifications:[{
+          id:1,
+          title:"Time to reflect ✦",
+          body:"A few minutes of journaling can change your whole perspective.",
+          schedule:{on:{hour,minute}},
+          sound:null,actionTypeId:"",extra:null
+        }]});
+      }
+    }catch(e){ console.log("Notifications not available",e); }
+  };
+  useEffect(()=>{ scheduleNotification(notifTime); },[notifTime]);
+
+  const updateNotifTime=async(time)=>{
+    setNotifTime(time);
+    await supabase.auth.updateUser({data:{notif_time:time}});
+    scheduleNotification(time);
+  };
 
 
   // ── Auth listener ──
@@ -449,6 +457,7 @@ const [editingText,setEditingText]=useState("");
         if(meta?.name) setUserName(meta.name);
         if(meta?.preferred_time) setPreferredTime(meta.preferred_time);
         if(meta?.ob_done) setObDone(true);
+        if(meta?.notif_time) setNotifTime(meta.notif_time);
       }
     });
     const hash = window.location.hash;
@@ -462,6 +471,7 @@ if(hash.includes("type=recovery") || query.includes("type=recovery")) setAuthMod
         if(meta?.name) setUserName(meta.name);
         if(meta?.preferred_time) setPreferredTime(meta.preferred_time);
         if(meta?.ob_done) setObDone(true);
+        if(meta?.notif_time) setNotifTime(meta.notif_time);
       }
     });
     return ()=>subscription.unsubscribe();
@@ -489,6 +499,14 @@ if(hash.includes("type=recovery") || query.includes("type=recovery")) setAuthMod
   },[session]);
 
   const today=new Date().toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"});
+  const streak=(()=>{
+    if(!entries.length) return 0;
+    const dates=new Set(entries.map(e=>e.date));
+    let count=0; const d=new Date();
+    if(!dates.has(d.toISOString().split("T")[0])) d.setDate(d.getDate()-1);
+    while(dates.has(d.toISOString().split("T")[0])){ count++; d.setDate(d.getDate()-1); }
+    return count;
+  })();
   const monthYear=new Date().toLocaleDateString("en-US",{month:"long",year:"numeric"});
   const moodForDay=(date)=>{ const e=entries.find(en=>en.date===date); return e?.mood||null; };
 
@@ -792,6 +810,12 @@ const habitDays=isMobile?lastNDays(7):last28Days();
             <a href="https://www.gethroughline.com/terms-of-service" target="_blank" rel="noreferrer" style={{fontSize:13,color:"var(--text-muted)",textDecoration:"none"}}>Terms of service</a>
             <a href="mailto:privacy@gethroughline.com?subject=Throughline Feedback" style={{fontSize:13,color:"var(--text-muted)",textDecoration:"none"}}>Send feedback</a>
             <div style={{height:"1px",background:"var(--border)",margin:"4px 0"}}/>
+            <div style={{fontSize:11,color:"var(--text-dim)",letterSpacing:"0.5px",marginBottom:4}}>NOTIFICATIONS</div>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8}}>
+              <span style={{fontSize:13,color:"var(--text-muted)"}}>Daily reminder</span>
+              <input type="time" value={notifTime} onChange={e=>updateNotifTime(e.target.value)} style={{background:"var(--surface)",border:"1px solid var(--border)",borderRadius:8,padding:"5px 8px",color:"var(--text)",fontFamily:"DM Sans,sans-serif",fontSize:13,outline:"none",cursor:"pointer",colorScheme:"dark"}}/>
+            </div>
+            <div style={{height:"1px",background:"var(--border)",margin:"4px 0"}}/>
             <button onClick={handleSignOut} style={{background:"none",border:"none",color:"var(--text-muted)",fontFamily:"DM Sans,sans-serif",fontSize:13,cursor:"pointer",textAlign:"left",padding:0}}>Sign out</button>
             <button onClick={async()=>{
               if(!window.confirm("Delete your account? This will permanently delete all your entries, habits and goals. This cannot be undone.")) return;
@@ -827,10 +851,14 @@ const habitDays=isMobile?lastNDays(7):last28Days();
     {/* ── TODAY ── */}
     {tab==="today"&&<>
       <div className="date-header">
-        <div className="date-label">{preferredTime?`${preferredTime} reflection`:"end of day reflection"}</div>
+        <div className="streak-badge-wrap">
+          <div className="date-label">{preferredTime?`${preferredTime} reflection`:"end of day reflection"}</div>
+          {streak>0&&<div className="streak-badge">🔥 {streak} day{streak!==1?"s":""}</div>}
+        </div>
         <div style={{display:"flex",alignItems:"center",gap:12}}>
-   <div className="date-main">{formatDate(selectedDate)}</div>
-<input type="date" value={selectedDate} onChange={e=>setSelectedDate(e.target.value)} max={todayStr} style={{background:"var(--surface2)",border:"1px solid var(--border)",borderRadius:8,padding:"6px 10px",color:"var(--text-muted)",fontFamily:"DM Sans,sans-serif",fontSize:12,outline:"none",cursor:"pointer"}}/>        </div>
+          <div className="date-main">{formatDate(selectedDate)}</div>
+          <input type="date" value={selectedDate} onChange={e=>setSelectedDate(e.target.value)} max={todayStr} style={{background:"var(--surface2)",border:"1px solid var(--border)",borderRadius:8,padding:"6px 10px",color:"var(--text-muted)",fontFamily:"DM Sans,sans-serif",fontSize:12,outline:"none",cursor:"pointer"}}/>
+        </div>
       </div>
       <div className="mood-row">
         <span className="mood-label">How are you feeling?</span>
