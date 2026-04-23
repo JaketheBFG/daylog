@@ -95,6 +95,14 @@ const STYLES = `
   .date-main { font-family:'Playfair Display',serif; font-size:34px; color:var(--cream); line-height:1.1; margin-top:4px; }
   .streak-badge { display:inline-flex; align-items:center; gap:5px; background:var(--amber-dim); border:1px solid rgba(200,136,42,0.25); border-radius:20px; padding:5px 12px; font-size:12px; color:var(--amber-soft); font-weight:500; white-space:nowrap; }
   .streak-badge-wrap { display:flex; align-items:center; justify-content:space-between; margin-bottom:4px; }
+  /* ── RATING ── */
+  .rating-modal { position:fixed; bottom:0; left:0; right:0; z-index:201; background:var(--surface); border-top:1px solid var(--border); border-radius:20px 20px 0 0; padding:32px 24px 40px; text-align:center; animation:slideIn 0.35s ease; }
+  .rating-star { font-size:28px; margin-bottom:14px; }
+  .rating-title { font-family:'Playfair Display',serif; font-size:20px; color:var(--cream); margin-bottom:8px; }
+  .rating-sub { font-size:14px; color:var(--text-muted); line-height:1.6; margin-bottom:24px; }
+  .rating-btn-primary { width:100%; padding:14px; border-radius:12px; background:var(--amber); border:none; color:#0e0c0a; font-family:'DM Sans',sans-serif; font-size:15px; font-weight:500; cursor:pointer; margin-bottom:10px; transition:all 0.2s; }
+  .rating-btn-primary:hover { background:var(--amber-soft); }
+  .rating-btn-ghost { background:none; border:none; color:var(--text-dim); font-family:'DM Sans',sans-serif; font-size:13px; cursor:pointer; }
 
   /* ── MOOD ── */
   .mood-row { display:flex; align-items:center; gap:6px; margin-bottom:20px; flex-wrap:nowrap; }
@@ -398,6 +406,9 @@ const [selectedDate,setSelectedDate]=useState(todayStr);
   // Notifications
   const [notifTime,setNotifTime]=useState("21:00");
 
+  // Rating
+  const [showRating,setShowRating]=useState(false);
+
   // Digest / Summary
   const [digest,setDigest]=useState(null);
   const [patternPeriod,setPatternPeriod]=useState("month");
@@ -446,6 +457,35 @@ const [editingText,setEditingText]=useState("");
     scheduleNotification(time);
   };
 
+  // ── Haptics ──
+  const haptic=async(style="light")=>{
+    if(!window.Capacitor) return;
+    try{
+      const {Haptics,ImpactStyle}=await import("@capacitor/haptics");
+      await Haptics.impact({style:style==="medium"?ImpactStyle.Medium:style==="heavy"?ImpactStyle.Heavy:ImpactStyle.Light});
+    }catch(e){}
+  };
+
+  // ── Rating prompt ──
+  const maybeShowRating=(entryCount)=>{
+    if(localStorage.getItem("tl_rated")||localStorage.getItem("tl_rate_dismissed")) return;
+    if(entryCount>=5) setShowRating(true);
+  };
+  const handleRate=async()=>{
+    localStorage.setItem("tl_rated","1");
+    setShowRating(false);
+    haptic("medium");
+    if(window.Capacitor){
+      try{
+        const {RateApp}=await import("capacitor-rate-app");
+        await RateApp.requestReview();
+      }catch(e){}
+    }
+  };
+  const dismissRating=()=>{
+    localStorage.setItem("tl_rate_dismissed","1");
+    setShowRating(false);
+  };
 
   // ── Auth listener ──
   useEffect(()=>{
@@ -617,7 +657,11 @@ const handleGenerateDigest=async()=>{ setGeneratingDigest(true); try{ const d=aw
     try{
 const parsed=await analyzeEntry(text,subTodos,subLearned,subGratitude,session.user.id,isPro);      setResult(parsed); setTodos(parsed.todos||[]);
 const entry={date:selectedDate,mood:todayMood,text,todos:parsed.todos||[],stress_tags:parsed.stressTags||[],joy_tags:parsed.joyTags||[],stress_categories:parsed.stressCategories||[],joy_categories:parsed.joyCategories||[],insight:parsed.insight||"",user_id:session.user.id};      const {data}=await supabase.from("entries").insert(entry).select().single();
-      if(data) setEntries(p=>[{...data,stressTags:data.stress_tags||[],joyTags:data.joy_tags||[],stressCategories:data.stress_categories||[],joyCategories:data.joy_categories||[]},...p]);
+      if(data){
+        const newEntries=[{...data,stressTags:data.stress_tags||[],joyTags:data.joy_tags||[],stressCategories:data.stress_categories||[],joyCategories:data.joy_categories||[]},...entries];
+        setEntries(newEntries);
+        maybeShowRating(newEntries.length);
+      }
     }catch(e){ setResult({error:true}); }
     setLoading(false);
   };
@@ -840,7 +884,7 @@ const habitDays=isMobile?lastNDays(7):last28Days();
             {id:"patterns",label:"Patterns"},
             {id:"history",label:"History"},
           ].map(t=>(
-            <button key={t.id} className={`nav-tab ${tab===t.id?"active":""}`} onClick={()=>setTab(t.id)}>
+            <button key={t.id} className={`nav-tab ${tab===t.id?"active":""}`} onClick={()=>{haptic("light");setTab(t.id);}}>
               {t.label}
             </button>
           ))}
@@ -862,7 +906,7 @@ const habitDays=isMobile?lastNDays(7):last28Days();
       </div>
       <div className="mood-row">
         <span className="mood-label">How are you feeling?</span>
-        {MOODS.map(m=><button key={m.score} className={`mood-btn ${todayMood===m.score?"selected":""}`} onClick={()=>setTodayMood(s=>s===m.score?null:m.score)} title={m.label}>{m.emoji}</button>)}
+        {MOODS.map(m=><button key={m.score} className={`mood-btn ${todayMood===m.score?"selected":""}`} onClick={()=>{haptic("light");setTodayMood(s=>s===m.score?null:m.score);}} title={m.label}>{m.emoji}</button>)}
         {todayMood&&<span className="mood-score-display">"{MOODS[todayMood-1].label}"</span>}
       </div>
       <div className="entry-card">
@@ -895,6 +939,7 @@ const habitDays=isMobile?lastNDays(7):last28Days();
             {habits.map(h=>{
               const isChecked=!!(h.checked?.[selectedDate]);
               return <div key={h.id} style={{display:"flex",alignItems:"center",gap:10,cursor:"pointer"}} onClick={async()=>{
+                haptic("light");
                 const newChecked={...h.checked,[selectedDate]:!isChecked};
                 setHabits(p=>p.map(x=>x.id===h.id?{...x,checked:newChecked}:x));
                 await supabase.from("habits").update({checked:newChecked}).eq("id",h.id);
@@ -909,7 +954,7 @@ const habitDays=isMobile?lastNDays(7):last28Days();
           <span className="char-count">{text.length} characters</span>
           <div className="entry-actions">
             <button className={`btn btn-ghost ${recording?"recording":""}`} onClick={toggleVoice}>{recording&&<span className="rec-dot"/>}{recording?"Stop":"🎙 Speak"}</button>
-            <button className="btn btn-primary" onClick={handleAnalyze} disabled={!text.trim()||loading}>{loading?"Reflecting...":"Reflect →"}</button>
+            <button className="btn btn-primary" onClick={()=>{haptic("medium");handleAnalyze();}} disabled={!text.trim()||loading}>{loading?"Reflecting...":"Reflect →"}</button>
           </div>
         </div>
       </div>
@@ -935,7 +980,7 @@ const habitDays=isMobile?lastNDays(7):last28Days();
             <span className="char-count">{planInput.length} characters</span>
             <div className="entry-actions">
               <button className={`btn btn-ghost ${planRecording?"recording":""}`} onClick={togglePlanVoice}>{planRecording&&<span className="rec-dot"/>}{planRecording?"Stop":"🎙 Speak"}</button>
-              <button className="btn btn-primary" onClick={handleGeneratePlan} disabled={!planInput.trim()||planLoading}>{planLoading?"Planning...":"Plan my day →"}</button>
+              <button className="btn btn-primary" onClick={()=>{haptic("medium");handleGeneratePlan();}} disabled={!planInput.trim()||planLoading}>{planLoading?"Planning...":"Plan my day →"}</button>
             </div>
           </div>
         </div>
@@ -958,7 +1003,7 @@ const habitDays=isMobile?lastNDays(7):last28Days();
             <div className="plan-section-label">To-dos</div>
             <div style={{marginBottom:16}}>
               {planTodos.map((t,i)=><div key={i} className="plan-todo-item">
-                <div className={`todo-check ${t.done?"done":""}`} onClick={()=>togglePlanTodo(i)}/>
+                <div className={`todo-check ${t.done?"done":""}`} onClick={()=>{haptic("light");togglePlanTodo(i);}}/>
                 <span className={`plan-todo-text ${t.done?"done":""}`}>{t.text}</span>
               </div>)}
             </div>
@@ -1075,6 +1120,16 @@ const habitDays=isMobile?lastNDays(7):last28Days();
       <button style={{width:"100%",padding:"14px",borderRadius:12,background:"var(--amber)",border:"none",color:"#0e0c0a",fontFamily:"DM Sans,sans-serif",fontSize:15,fontWeight:500,cursor:"pointer",marginBottom:10}}>$4.99/month — Coming soon</button>
       <button style={{width:"100%",padding:"14px",borderRadius:12,background:"transparent",border:"1px solid var(--border)",color:"var(--text-muted)",fontFamily:"DM Sans,sans-serif",fontSize:14,cursor:"pointer",marginBottom:16}}>$34.99/year — Coming soon</button>
       <button onClick={()=>setShowUpgrade(false)} style={{background:"none",border:"none",color:"var(--text-dim)",fontFamily:"DM Sans,sans-serif",fontSize:13,cursor:"pointer"}}>Maybe later</button>
+    </div>
+  </>}
+  {showRating&&<>
+    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.6)",zIndex:200,backdropFilter:"blur(4px)"}} onClick={dismissRating}/>
+    <div className="rating-modal">
+      <div className="rating-star">✦</div>
+      <div className="rating-title">Loving Throughline?</div>
+      <div className="rating-sub">A quick review helps others find a place to reflect. It means a lot.</div>
+      <button className="rating-btn-primary" onClick={handleRate}>Leave a review ✦</button>
+      <button className="rating-btn-ghost" onClick={dismissRating}>Maybe later</button>
     </div>
   </>}
   </div></>);
