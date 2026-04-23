@@ -396,6 +396,7 @@ const [selectedDate,setSelectedDate]=useState(todayStr);
   // Digest / Summary
   const [digest,setDigest]=useState(null);
   const [patternPeriod,setPatternPeriod]=useState("month");
+  const [patternOffset,setPatternOffset]=useState(0);
   const [isPro,setIsPro]=useState(false);
   const [showSettings,setShowSettings]=useState(false);
   const [showUpgrade,setShowUpgrade]=useState(false);
@@ -551,20 +552,32 @@ const {error}=await supabase.auth.resetPasswordForEmail(authEmail,{redirectTo:"h
   });
   const resetPlan=()=>{ setDayPlan(null); setPlanInput(""); setPlanTodos([]); localStorage.removeItem(`dayplan_${todayStr}`); };
   const now=new Date();
-  const periodStart=new Date(now);
-  if(patternPeriod==="week") periodStart.setDate(now.getDate()-7);
-  else if(patternPeriod==="month") periodStart.setMonth(now.getMonth()-1);
-  else periodStart.setFullYear(now.getFullYear()-1);
-  const periodStartStr=periodStart.toISOString().split("T")[0];
-  const filteredEntries=entries.filter(e=>e.date>=periodStartStr);
+  let periodStartDate,periodEndDate,periodLabel;
+  if(patternPeriod==="week"){
+    periodEndDate=new Date(now); periodEndDate.setDate(periodEndDate.getDate()-patternOffset*7);
+    periodStartDate=new Date(periodEndDate); periodStartDate.setDate(periodStartDate.getDate()-6);
+    periodLabel=patternOffset===0?"This week":`${shortDate(periodStartDate.toISOString().split("T")[0])} – ${shortDate(periodEndDate.toISOString().split("T")[0])}`;
+  } else if(patternPeriod==="month"){
+    const t=new Date(now.getFullYear(),now.getMonth()-patternOffset,1);
+    periodStartDate=t;
+    periodEndDate=new Date(t.getFullYear(),t.getMonth()+1,0);
+    periodLabel=patternOffset===0?"This month":t.toLocaleDateString("en-US",{month:"long",year:"numeric"});
+  } else {
+    const yr=now.getFullYear()-patternOffset;
+    periodStartDate=new Date(yr,0,1); periodEndDate=new Date(yr,11,31);
+    periodLabel=patternOffset===0?"This year":String(yr);
+  }
+  const periodStartStr=periodStartDate.toISOString().split("T")[0];
+  const periodEndStr=periodEndDate.toISOString().split("T")[0];
+  const filteredEntries=entries.filter(e=>e.date>=periodStartStr&&e.date<=periodEndStr);
   const stressTagCounts={};const joyTagCounts={};
   filteredEntries.forEach(e=>{
     (e.stressCategories||e.stressTags||[]).forEach(t=>{stressTagCounts[t]=(stressTagCounts[t]||0)+1;});
     (e.joyCategories||e.joyTags||[]).forEach(t=>{joyTagCounts[t]=(joyTagCounts[t]||0)+1;});
   });
   const maxStress=Math.max(1,...Object.values(stressTagCounts));const maxJoy=Math.max(1,...Object.values(joyTagCounts));
-  const STRESS_PATTERNS=Object.entries(stressTagCounts).sort((a,b)=>b[1]-a[1]).slice(0,6).map(([label,count])=>({label,pct:Math.round(count/maxStress*100)}));
-  const JOY_PATTERNS=Object.entries(joyTagCounts).sort((a,b)=>b[1]-a[1]).slice(0,6).map(([label,count])=>({label,pct:Math.round(count/maxJoy*100)}));
+  const STRESS_PATTERNS=Object.entries(stressTagCounts).sort((a,b)=>b[1]-a[1]).slice(0,5).map(([label,count])=>({label,count,pct:Math.round(count/maxStress*100)}));
+  const JOY_PATTERNS=Object.entries(joyTagCounts).sort((a,b)=>b[1]-a[1]).slice(0,5).map(([label,count])=>({label,count,pct:Math.round(count/maxJoy*100)}));
 
   // ── Habit helpers ──
   const toggleHabit=async(hid,date)=>{ const habit=habits.find(h=>h.id===hid); const newChecked={...habit.checked,[date]:!habit.checked[date]}; setHabits(p=>p.map(h=>h.id===hid?{...h,checked:newChecked}:h)); await supabase.from("habits").update({checked:newChecked}).eq("id",hid); };
@@ -963,9 +976,16 @@ const habitDays=isMobile?lastNDays(7):last28Days();
         <button className="digest-gen-btn" onClick={handleGenerateDigest} disabled={generatingDigest||entries.length===0}>{generatingDigest?<><div className="loading-dots" style={{padding:0}}><span/><span/><span/></div> Writing your digest...</>:<><span>✦</span> Generate this week's digest</>}</button>
         {digest&&<div className="digest-card"><div className="digest-week">Week of {shortDate(weekDates[0])} — {shortDate(weekDates[6])}</div>{digest.headline&&<div className="digest-headline">"{digest.headline}"</div>}{digest.highlight&&<div className="digest-section"><div className="digest-section-label">Highlight</div><div className="digest-body">{digest.highlight}</div></div>}{digest.pattern&&<div className="digest-section"><div className="digest-section-label">Pattern noticed</div><div className="digest-body">{digest.pattern}</div></div>}{digest.nudge&&<div className="digest-section"><div className="digest-section-label">For next week</div><div className="digest-nudge">{digest.nudge}</div></div>}</div>}
       </div>
-      <div style={{display:"flex",gap:8,marginBottom:16}}>
-  {["week","month","year"].map(p=><button key={p} onClick={()=>setPatternPeriod(p)} style={{padding:"6px 14px",borderRadius:20,border:"1px solid var(--border)",background:patternPeriod===p?"var(--amber)":"transparent",color:patternPeriod===p?"#0e0c0a":"var(--text-muted)",fontFamily:"DM Sans,sans-serif",fontSize:12,cursor:"pointer"}}>{p.charAt(0).toUpperCase()+p.slice(1)}</button>)}
-</div>
+      <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:20,flexWrap:"wrap"}}>
+        <div style={{display:"flex",gap:4}}>
+          {["week","month","year"].map(p=><button key={p} onClick={()=>{setPatternPeriod(p);setPatternOffset(0);}} style={{padding:"6px 14px",borderRadius:20,border:"1px solid var(--border)",background:patternPeriod===p?"var(--amber)":"transparent",color:patternPeriod===p?"#0e0c0a":"var(--text-muted)",fontFamily:"DM Sans,sans-serif",fontSize:12,cursor:"pointer",transition:"all 0.15s"}}>{p.charAt(0).toUpperCase()+p.slice(1)}</button>)}
+        </div>
+        <div style={{display:"flex",alignItems:"center",gap:8,marginLeft:"auto"}}>
+          <button onClick={()=>setPatternOffset(p=>p+1)} style={{background:"none",border:"1px solid var(--border)",borderRadius:8,padding:"4px 10px",color:"var(--text-muted)",cursor:"pointer",fontSize:13,fontFamily:"DM Sans,sans-serif",lineHeight:1}}>←</button>
+          <span style={{fontSize:12,color:"var(--text-muted)",minWidth:100,textAlign:"center",fontStyle:"italic"}}>{periodLabel}</span>
+          <button onClick={()=>setPatternOffset(p=>Math.max(0,p-1))} disabled={patternOffset===0} style={{background:"none",border:"1px solid var(--border)",borderRadius:8,padding:"4px 10px",color:patternOffset===0?"var(--text-dim)":"var(--text-muted)",cursor:patternOffset===0?"default":"pointer",fontSize:13,fontFamily:"DM Sans,sans-serif",lineHeight:1,opacity:patternOffset===0?0.4:1}}>→</button>
+        </div>
+      </div>
 <div className="pattern-card"><h3>Consistent stressors</h3><p style={{marginBottom:16}}>What comes up most when you're feeling friction.</p>{STRESS_PATTERNS.length===0?<div style={{fontSize:13,color:"var(--text-dim)",fontStyle:"italic"}}>No patterns yet — keep journaling and they'll appear here.</div>:<div className="bar-chart">{STRESS_PATTERNS.map(p=><div key={p.label} className="bar-row"><div className="bar-label">{p.label}</div><div className="bar-track"><div className="bar-fill stress" style={{width:`${p.pct}%`}}/></div><div className="bar-pct">{p.count}x</div></div>)}</div>}</div>
       <div className="pattern-card"><h3>What lights you up</h3><p style={{marginBottom:16}}>Things consistently tied to your better days.</p>{JOY_PATTERNS.length===0?<div style={{fontSize:13,color:"var(--text-dim)",fontStyle:"italic"}}>No patterns yet — keep journaling and they'll appear here.</div>:<div className="bar-chart">{JOY_PATTERNS.map(p=><div key={p.label} className="bar-row"><div className="bar-label">{p.label}</div><div className="bar-track"><div className="bar-fill joy" style={{width:`${p.pct}%`}}/></div><div className="bar-pct">{p.count}x</div></div>)}</div>}</div>
       <div className="summary-card"><div className="summary-month">Monthly summary · {monthYear}</div>{monthlySummary?<div className="summary-text">{monthlySummary}</div>:<><div className="summary-text" style={{marginBottom:12}}>Generate a personal summary of your month based on your real entries.</div><button className="digest-gen-btn" onClick={handleGenerateMonthlySummary} disabled={generatingMonthlySummary||entries.length===0}>{generatingMonthlySummary?<><div className="loading-dots" style={{padding:0}}><span/><span/><span/></div> Writing your summary...</>:<><span>✦</span> Generate monthly summary</>}</button></>}</div>
