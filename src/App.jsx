@@ -93,6 +93,16 @@ const STYLES = `
   .date-header { margin-bottom:28px; }
   .date-label { font-family:'Playfair Display',serif; font-size:13px; font-style:italic; color:var(--text-muted); letter-spacing:0.5px; }
   .date-main { font-family:'Playfair Display',serif; font-size:34px; color:var(--cream); line-height:1.1; margin-top:4px; }
+  .streak-badge { display:inline-flex; align-items:center; gap:5px; background:var(--amber-dim); border:1px solid rgba(200,136,42,0.25); border-radius:20px; padding:5px 12px; font-size:12px; color:var(--amber-soft); font-weight:500; white-space:nowrap; }
+  .streak-badge-wrap { display:flex; align-items:center; justify-content:space-between; margin-bottom:4px; }
+  /* ── RATING ── */
+  .rating-modal { position:fixed; bottom:0; left:0; right:0; z-index:201; background:var(--surface); border-top:1px solid var(--border); border-radius:20px 20px 0 0; padding:32px 24px 40px; text-align:center; animation:slideIn 0.35s ease; }
+  .rating-star { font-size:28px; margin-bottom:14px; }
+  .rating-title { font-family:'Playfair Display',serif; font-size:20px; color:var(--cream); margin-bottom:8px; }
+  .rating-sub { font-size:14px; color:var(--text-muted); line-height:1.6; margin-bottom:24px; }
+  .rating-btn-primary { width:100%; padding:14px; border-radius:12px; background:var(--amber); border:none; color:#0e0c0a; font-family:'DM Sans',sans-serif; font-size:15px; font-weight:500; cursor:pointer; margin-bottom:10px; transition:all 0.2s; }
+  .rating-btn-primary:hover { background:var(--amber-soft); }
+  .rating-btn-ghost { background:none; border:none; color:var(--text-dim); font-family:'DM Sans',sans-serif; font-size:13px; cursor:pointer; }
 
   /* ── MOOD ── */
   .mood-row { display:flex; align-items:center; gap:6px; margin-bottom:20px; flex-wrap:nowrap; }
@@ -393,9 +403,22 @@ const [selectedDate,setSelectedDate]=useState(todayStr);
   const [newGoalText,setNewGoalText]=useState("");
   const [addingGoal,setAddingGoal]=useState(false);
 
+  // Notifications
+  const [notifTime,setNotifTime]=useState("21:00");
+
+  // Rating
+  const [showRating,setShowRating]=useState(false);
+
+  // IAP
+  const [iapPackages,setIapPackages]=useState([]);
+  const [iapLoading,setIapLoading]=useState(false);
+  const [purchasing,setPurchasing]=useState(null); // packageId being purchased
+  const [restoring,setRestoring]=useState(false);
+
   // Digest / Summary
   const [digest,setDigest]=useState(null);
   const [patternPeriod,setPatternPeriod]=useState("month");
+  const [patternOffset,setPatternOffset]=useState(0);
   const [isPro,setIsPro]=useState(false);
   const [showSettings,setShowSettings]=useState(false);
   const [showUpgrade,setShowUpgrade]=useState(false);
@@ -414,29 +437,119 @@ const [editingText,setEditingText]=useState("");
   },[]);
 
   // ── Notifications ──
-  useEffect(()=>{
+  const scheduleNotification=async(time)=>{
     if(!window.Capacitor) return;
-    const setupNotifications=async()=>{
-      try {
-        const {LocalNotifications}=await import("@capacitor/local-notifications");
-        const {display}=await LocalNotifications.requestPermissions();
-        if(display==="granted"){
-          await LocalNotifications.cancel({notifications:[{id:1}]});
-          await LocalNotifications.schedule({notifications:[{
-            id:1,
-            title:"Time to reflect ✦",
-            body:"A few minutes of journaling can change your whole perspective.",
-            schedule:{on:{hour:21,minute:0}},
-            sound:null,
-            actionTypeId:"",
-            extra:null
-          }]});
-        }
-      } catch(e){ console.log("Notifications not available",e); }
-    };
-    setupNotifications();
-  },[]);
+    try{
+      const {LocalNotifications}=await import("@capacitor/local-notifications");
+      const {display}=await LocalNotifications.requestPermissions();
+      if(display==="granted"){
+        const [hour,minute]=(time||"21:00").split(":").map(Number);
+        await LocalNotifications.cancel({notifications:[{id:1}]});
+        await LocalNotifications.schedule({notifications:[{
+          id:1,
+          title:"Time to reflect ✦",
+          body:"A few minutes of journaling can change your whole perspective.",
+          schedule:{on:{hour,minute}},
+          sound:null,actionTypeId:"",extra:null
+        }]});
+      }
+    }catch(e){ console.log("Notifications not available",e); }
+  };
+  useEffect(()=>{ scheduleNotification(notifTime); },[notifTime]);
 
+  const updateNotifTime=async(time)=>{
+    setNotifTime(time);
+    await supabase.auth.updateUser({data:{notif_time:time}});
+    scheduleNotification(time);
+  };
+
+  // ── RevenueCat / IAP ──
+  useEffect(()=>{
+    if(!session||!window.Capacitor) return;
+    const key=import.meta.env.VITE_REVENUECAT_IOS_KEY;
+    if(!key) return;
+    (async()=>{
+      try{
+        const {Purchases,LOG_LEVEL}=await import("@revenuecat/purchases-capacitor");
+        await Purchases.setLogLevel({level:LOG_LEVEL.ERROR});
+        await Purchases.configure({apiKey:key,appUserID:session.user.id});
+        const {customerInfo}=await Purchases.getCustomerInfo();
+        if(customerInfo.entitlements.active["pro"]){
+          setIsPro(true);
+          await supabase.from("profiles").upsert({id:session.user.id,is_pro:true},{onConflict:"id"});
+        }
+      }catch(e){ console.log("RC init",e); }
+    })();
+  },[session?.user?.id]);
+
+  const loadIAPPackages=async()=>{
+    if(!window.Capacitor||iapPackages.length) return;
+    setIapLoading(true);
+    try{
+      const {Purchases}=await import("@revenuecat/purchases-capacitor");
+      const {offerings}=await Purchases.getOfferings();
+      setIapPackages(offerings.current?.availablePackages||[]);
+    }catch(e){}
+    setIapLoading(false);
+  };
+
+  const handlePurchase=async(pkg)=>{
+    if(!window.Capacitor) return;
+    haptic("medium"); setPurchasing(pkg.identifier);
+    try{
+      const {Purchases}=await import("@revenuecat/purchases-capacitor");
+      const {customerInfo}=await Purchases.purchasePackage({aPackage:pkg});
+      if(customerInfo.entitlements.active["pro"]){
+        await supabase.from("profiles").upsert({id:session.user.id,is_pro:true},{onConflict:"id"});
+        setIsPro(true); setShowUpgrade(false); haptic("heavy");
+      }
+    }catch(e){ if(!e.message?.includes("CANCELLED")) alert("Purchase failed — please try again."); }
+    setPurchasing(null);
+  };
+
+  const handleRestorePurchases=async()=>{
+    if(!window.Capacitor) return;
+    haptic("light"); setRestoring(true);
+    try{
+      const {Purchases}=await import("@revenuecat/purchases-capacitor");
+      const {customerInfo}=await Purchases.restorePurchases();
+      if(customerInfo.entitlements.active["pro"]){
+        await supabase.from("profiles").upsert({id:session.user.id,is_pro:true},{onConflict:"id"});
+        setIsPro(true); setShowUpgrade(false);
+      } else { alert("No active subscription found."); }
+    }catch(e){}
+    setRestoring(false);
+  };
+
+  // ── Haptics ──
+  const haptic=async(style="light")=>{
+    if(!window.Capacitor) return;
+    try{
+      const {Haptics,ImpactStyle}=await import("@capacitor/haptics");
+      await Haptics.impact({style:style==="medium"?ImpactStyle.Medium:style==="heavy"?ImpactStyle.Heavy:ImpactStyle.Light});
+    }catch(e){}
+  };
+
+  // ── Rating prompt ──
+  const maybeShowRating=(entryCount)=>{
+    if(localStorage.getItem("tl_rated")||localStorage.getItem("tl_rate_dismissed")) return;
+    if(entryCount>=5) setShowRating(true);
+  };
+  const handleRate=async()=>{
+    localStorage.setItem("tl_rated","1");
+    setShowRating(false);
+    haptic("medium");
+    if(window.Capacitor){
+      try{
+        const {RateApp}=await import("capacitor-rate-app");
+        await RateApp.requestReview();
+      }catch(e){}
+    }
+  };
+  const dismissRating=()=>{
+    localStorage.setItem("tl_rate_dismissed","1");
+    setShowRating(false);
+  };
 
   // ── Auth listener ──
   useEffect(()=>{
@@ -448,6 +561,7 @@ const [editingText,setEditingText]=useState("");
         if(meta?.name) setUserName(meta.name);
         if(meta?.preferred_time) setPreferredTime(meta.preferred_time);
         if(meta?.ob_done) setObDone(true);
+        if(meta?.notif_time) setNotifTime(meta.notif_time);
       }
     });
     const hash = window.location.hash;
@@ -461,6 +575,7 @@ if(hash.includes("type=recovery") || query.includes("type=recovery")) setAuthMod
         if(meta?.name) setUserName(meta.name);
         if(meta?.preferred_time) setPreferredTime(meta.preferred_time);
         if(meta?.ob_done) setObDone(true);
+        if(meta?.notif_time) setNotifTime(meta.notif_time);
       }
     });
     return ()=>subscription.unsubscribe();
@@ -488,6 +603,14 @@ if(hash.includes("type=recovery") || query.includes("type=recovery")) setAuthMod
   },[session]);
 
   const today=new Date().toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"});
+  const streak=(()=>{
+    if(!entries.length) return 0;
+    const dates=new Set(entries.map(e=>e.date));
+    let count=0; const d=new Date();
+    if(!dates.has(d.toISOString().split("T")[0])) d.setDate(d.getDate()-1);
+    while(dates.has(d.toISOString().split("T")[0])){ count++; d.setDate(d.getDate()-1); }
+    return count;
+  })();
   const monthYear=new Date().toLocaleDateString("en-US",{month:"long",year:"numeric"});
   const moodForDay=(date)=>{ const e=entries.find(en=>en.date===date); return e?.mood||null; };
 
@@ -550,21 +673,64 @@ const {error}=await supabase.auth.resetPasswordForEmail(authEmail,{redirectTo:"h
     return next;
   });
   const resetPlan=()=>{ setDayPlan(null); setPlanInput(""); setPlanTodos([]); localStorage.removeItem(`dayplan_${todayStr}`); };
+
+  // ── Data export ──
+  const exportData=async(format)=>{
+    haptic("medium");
+    let content,filename,type;
+    if(format==="journal"){
+      const sorted=[...entries].sort((a,b)=>a.date.localeCompare(b.date));
+      content=`# My Throughline Journal\nExported ${new Date().toLocaleDateString("en-US",{month:"long",day:"numeric",year:"numeric"})}\n${sorted.map(e=>{
+        const mobj=e.mood?MOODS[e.mood-1]:null;
+        const lines=[`\n## ${formatDate(e.date)}`];
+        if(mobj) lines.push(`*Mood: ${mobj.label} ${mobj.emoji}*`);
+        lines.push(`\n${e.text}`);
+        if(e.insight) lines.push(`\n> ${e.insight}`);
+        if(e.stressTags?.length) lines.push(`\nStressors: ${e.stressTags.join(", ")}`);
+        if(e.joyTags?.length) lines.push(`Joy: ${e.joyTags.join(", ")}`);
+        if(e.todos?.length) lines.push(`\nTo-dos:\n${e.todos.map(t=>`- ${t}`).join("\n")}`);
+        return lines.join("\n");
+      }).join("\n\n---")}\n`;
+      filename=`throughline-journal-${todayStr}.md`; type="text/markdown";
+    } else {
+      content=JSON.stringify({exported:new Date().toISOString(),entries,habits,goals},null,2);
+      filename=`throughline-backup-${todayStr}.json`; type="application/json";
+    }
+    const file=new File([content],filename,{type});
+    if(navigator.share&&navigator.canShare?.({files:[file]})){
+      try{ await navigator.share({title:"Throughline export",files:[file]}); return; }catch(e){}
+    }
+    const url=URL.createObjectURL(file);
+    const a=document.createElement("a"); a.href=url; a.download=filename; a.click();
+    setTimeout(()=>URL.revokeObjectURL(url),1000);
+  };
   const now=new Date();
-  const periodStart=new Date(now);
-  if(patternPeriod==="week") periodStart.setDate(now.getDate()-7);
-  else if(patternPeriod==="month") periodStart.setMonth(now.getMonth()-1);
-  else periodStart.setFullYear(now.getFullYear()-1);
-  const periodStartStr=periodStart.toISOString().split("T")[0];
-  const filteredEntries=entries.filter(e=>e.date>=periodStartStr);
+  let periodStartDate,periodEndDate,periodLabel;
+  if(patternPeriod==="week"){
+    periodEndDate=new Date(now); periodEndDate.setDate(periodEndDate.getDate()-patternOffset*7);
+    periodStartDate=new Date(periodEndDate); periodStartDate.setDate(periodStartDate.getDate()-6);
+    periodLabel=patternOffset===0?"This week":`${shortDate(periodStartDate.toISOString().split("T")[0])} – ${shortDate(periodEndDate.toISOString().split("T")[0])}`;
+  } else if(patternPeriod==="month"){
+    const t=new Date(now.getFullYear(),now.getMonth()-patternOffset,1);
+    periodStartDate=t;
+    periodEndDate=new Date(t.getFullYear(),t.getMonth()+1,0);
+    periodLabel=patternOffset===0?"This month":t.toLocaleDateString("en-US",{month:"long",year:"numeric"});
+  } else {
+    const yr=now.getFullYear()-patternOffset;
+    periodStartDate=new Date(yr,0,1); periodEndDate=new Date(yr,11,31);
+    periodLabel=patternOffset===0?"This year":String(yr);
+  }
+  const periodStartStr=periodStartDate.toISOString().split("T")[0];
+  const periodEndStr=periodEndDate.toISOString().split("T")[0];
+  const filteredEntries=entries.filter(e=>e.date>=periodStartStr&&e.date<=periodEndStr);
   const stressTagCounts={};const joyTagCounts={};
   filteredEntries.forEach(e=>{
     (e.stressCategories||e.stressTags||[]).forEach(t=>{stressTagCounts[t]=(stressTagCounts[t]||0)+1;});
     (e.joyCategories||e.joyTags||[]).forEach(t=>{joyTagCounts[t]=(joyTagCounts[t]||0)+1;});
   });
   const maxStress=Math.max(1,...Object.values(stressTagCounts));const maxJoy=Math.max(1,...Object.values(joyTagCounts));
-  const STRESS_PATTERNS=Object.entries(stressTagCounts).sort((a,b)=>b[1]-a[1]).slice(0,6).map(([label,count])=>({label,pct:Math.round(count/maxStress*100)}));
-  const JOY_PATTERNS=Object.entries(joyTagCounts).sort((a,b)=>b[1]-a[1]).slice(0,6).map(([label,count])=>({label,pct:Math.round(count/maxJoy*100)}));
+  const STRESS_PATTERNS=Object.entries(stressTagCounts).sort((a,b)=>b[1]-a[1]).slice(0,5).map(([label,count])=>({label,count,pct:Math.round(count/maxStress*100)}));
+  const JOY_PATTERNS=Object.entries(joyTagCounts).sort((a,b)=>b[1]-a[1]).slice(0,5).map(([label,count])=>({label,count,pct:Math.round(count/maxJoy*100)}));
 
   // ── Habit helpers ──
   const toggleHabit=async(hid,date)=>{ const habit=habits.find(h=>h.id===hid); const newChecked={...habit.checked,[date]:!habit.checked[date]}; setHabits(p=>p.map(h=>h.id===hid?{...h,checked:newChecked}:h)); await supabase.from("habits").update({checked:newChecked}).eq("id",hid); };
@@ -586,7 +752,11 @@ const handleGenerateDigest=async()=>{ setGeneratingDigest(true); try{ const d=aw
     try{
 const parsed=await analyzeEntry(text,subTodos,subLearned,subGratitude,session.user.id,isPro);      setResult(parsed); setTodos(parsed.todos||[]);
 const entry={date:selectedDate,mood:todayMood,text,todos:parsed.todos||[],stress_tags:parsed.stressTags||[],joy_tags:parsed.joyTags||[],stress_categories:parsed.stressCategories||[],joy_categories:parsed.joyCategories||[],insight:parsed.insight||"",user_id:session.user.id};      const {data}=await supabase.from("entries").insert(entry).select().single();
-      if(data) setEntries(p=>[{...data,stressTags:data.stress_tags||[],joyTags:data.joy_tags||[],stressCategories:data.stress_categories||[],joyCategories:data.joy_categories||[]},...p]);
+      if(data){
+        const newEntries=[{...data,stressTags:data.stress_tags||[],joyTags:data.joy_tags||[],stressCategories:data.stress_categories||[],joyCategories:data.joy_categories||[]},...entries];
+        setEntries(newEntries);
+        maybeShowRating(newEntries.length);
+      }
     }catch(e){ setResult({error:true}); }
     setLoading(false);
   };
@@ -779,6 +949,18 @@ const habitDays=isMobile?lastNDays(7):last28Days();
             <a href="https://www.gethroughline.com/terms-of-service" target="_blank" rel="noreferrer" style={{fontSize:13,color:"var(--text-muted)",textDecoration:"none"}}>Terms of service</a>
             <a href="mailto:privacy@gethroughline.com?subject=Throughline Feedback" style={{fontSize:13,color:"var(--text-muted)",textDecoration:"none"}}>Send feedback</a>
             <div style={{height:"1px",background:"var(--border)",margin:"4px 0"}}/>
+            <div style={{fontSize:11,color:"var(--text-dim)",letterSpacing:"0.5px",marginBottom:8}}>EXPORT DATA</div>
+            <button onClick={()=>exportData("journal")} style={{background:"none",border:"none",color:"var(--text-muted)",fontFamily:"DM Sans,sans-serif",fontSize:13,cursor:"pointer",textAlign:"left",padding:0}}>Export journal as Markdown</button>
+            <button onClick={()=>exportData("json")} style={{background:"none",border:"none",color:"var(--text-muted)",fontFamily:"DM Sans,sans-serif",fontSize:13,cursor:"pointer",textAlign:"left",padding:0}}>Export full backup as JSON</button>
+            <div style={{height:"1px",background:"var(--border)",margin:"4px 0"}}/>
+            <div style={{fontSize:11,color:"var(--text-dim)",letterSpacing:"0.5px",marginBottom:4}}>NOTIFICATIONS</div>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8}}>
+              <span style={{fontSize:13,color:"var(--text-muted)"}}>Daily reminder</span>
+              <input type="time" value={notifTime} onChange={e=>updateNotifTime(e.target.value)} style={{background:"var(--surface)",border:"1px solid var(--border)",borderRadius:8,padding:"5px 8px",color:"var(--text)",fontFamily:"DM Sans,sans-serif",fontSize:13,outline:"none",cursor:"pointer",colorScheme:"dark"}}/>
+            </div>
+            <div style={{height:"1px",background:"var(--border)",margin:"4px 0"}}/>
+            {!isPro&&<button onClick={()=>{setShowSettings(false);setShowUpgrade(true);loadIAPPackages();}} style={{background:"none",border:"none",color:"var(--amber-soft)",fontFamily:"DM Sans,sans-serif",fontSize:13,cursor:"pointer",textAlign:"left",padding:0}}>Upgrade to Pro ✦</button>}
+            {isPro&&<button onClick={()=>window.open("https://apps.apple.com/account/subscriptions","_blank")} style={{background:"none",border:"none",color:"var(--text-muted)",fontFamily:"DM Sans,sans-serif",fontSize:13,cursor:"pointer",textAlign:"left",padding:0}}>Manage subscription</button>}
             <button onClick={handleSignOut} style={{background:"none",border:"none",color:"var(--text-muted)",fontFamily:"DM Sans,sans-serif",fontSize:13,cursor:"pointer",textAlign:"left",padding:0}}>Sign out</button>
             <button onClick={async()=>{
               if(!window.confirm("Delete your account? This will permanently delete all your entries, habits and goals. This cannot be undone.")) return;
@@ -803,7 +985,7 @@ const habitDays=isMobile?lastNDays(7):last28Days();
             {id:"patterns",label:"Patterns"},
             {id:"history",label:"History"},
           ].map(t=>(
-            <button key={t.id} className={`nav-tab ${tab===t.id?"active":""}`} onClick={()=>setTab(t.id)}>
+            <button key={t.id} className={`nav-tab ${tab===t.id?"active":""}`} onClick={()=>{haptic("light");setTab(t.id);}}>
               {t.label}
             </button>
           ))}
@@ -814,14 +996,18 @@ const habitDays=isMobile?lastNDays(7):last28Days();
     {/* ── TODAY ── */}
     {tab==="today"&&<>
       <div className="date-header">
-        <div className="date-label">{preferredTime?`${preferredTime} reflection`:"end of day reflection"}</div>
+        <div className="streak-badge-wrap">
+          <div className="date-label">{preferredTime?`${preferredTime} reflection`:"end of day reflection"}</div>
+          {streak>0&&<div className="streak-badge">🔥 {streak} day{streak!==1?"s":""}</div>}
+        </div>
         <div style={{display:"flex",alignItems:"center",gap:12}}>
-   <div className="date-main">{formatDate(selectedDate)}</div>
-<input type="date" value={selectedDate} onChange={e=>setSelectedDate(e.target.value)} max={todayStr} style={{background:"var(--surface2)",border:"1px solid var(--border)",borderRadius:8,padding:"6px 10px",color:"var(--text-muted)",fontFamily:"DM Sans,sans-serif",fontSize:12,outline:"none",cursor:"pointer"}}/>        </div>
+          <div className="date-main">{formatDate(selectedDate)}</div>
+          <input type="date" value={selectedDate} onChange={e=>setSelectedDate(e.target.value)} max={todayStr} style={{background:"var(--surface2)",border:"1px solid var(--border)",borderRadius:8,padding:"6px 10px",color:"var(--text-muted)",fontFamily:"DM Sans,sans-serif",fontSize:12,outline:"none",cursor:"pointer"}}/>
+        </div>
       </div>
       <div className="mood-row">
         <span className="mood-label">How are you feeling?</span>
-        {MOODS.map(m=><button key={m.score} className={`mood-btn ${todayMood===m.score?"selected":""}`} onClick={()=>setTodayMood(s=>s===m.score?null:m.score)} title={m.label}>{m.emoji}</button>)}
+        {MOODS.map(m=><button key={m.score} className={`mood-btn ${todayMood===m.score?"selected":""}`} onClick={()=>{haptic("light");setTodayMood(s=>s===m.score?null:m.score);}} title={m.label}>{m.emoji}</button>)}
         {todayMood&&<span className="mood-score-display">"{MOODS[todayMood-1].label}"</span>}
       </div>
       <div className="entry-card">
@@ -854,6 +1040,7 @@ const habitDays=isMobile?lastNDays(7):last28Days();
             {habits.map(h=>{
               const isChecked=!!(h.checked?.[selectedDate]);
               return <div key={h.id} style={{display:"flex",alignItems:"center",gap:10,cursor:"pointer"}} onClick={async()=>{
+                haptic("light");
                 const newChecked={...h.checked,[selectedDate]:!isChecked};
                 setHabits(p=>p.map(x=>x.id===h.id?{...x,checked:newChecked}:x));
                 await supabase.from("habits").update({checked:newChecked}).eq("id",h.id);
@@ -868,7 +1055,7 @@ const habitDays=isMobile?lastNDays(7):last28Days();
           <span className="char-count">{text.length} characters</span>
           <div className="entry-actions">
             <button className={`btn btn-ghost ${recording?"recording":""}`} onClick={toggleVoice}>{recording&&<span className="rec-dot"/>}{recording?"Stop":"🎙 Speak"}</button>
-            <button className="btn btn-primary" onClick={handleAnalyze} disabled={!text.trim()||loading}>{loading?"Reflecting...":"Reflect →"}</button>
+            <button className="btn btn-primary" onClick={()=>{haptic("medium");handleAnalyze();}} disabled={!text.trim()||loading}>{loading?"Reflecting...":"Reflect →"}</button>
           </div>
         </div>
       </div>
@@ -894,7 +1081,7 @@ const habitDays=isMobile?lastNDays(7):last28Days();
             <span className="char-count">{planInput.length} characters</span>
             <div className="entry-actions">
               <button className={`btn btn-ghost ${planRecording?"recording":""}`} onClick={togglePlanVoice}>{planRecording&&<span className="rec-dot"/>}{planRecording?"Stop":"🎙 Speak"}</button>
-              <button className="btn btn-primary" onClick={handleGeneratePlan} disabled={!planInput.trim()||planLoading}>{planLoading?"Planning...":"Plan my day →"}</button>
+              <button className="btn btn-primary" onClick={()=>{haptic("medium");handleGeneratePlan();}} disabled={!planInput.trim()||planLoading}>{planLoading?"Planning...":"Plan my day →"}</button>
             </div>
           </div>
         </div>
@@ -917,7 +1104,7 @@ const habitDays=isMobile?lastNDays(7):last28Days();
             <div className="plan-section-label">To-dos</div>
             <div style={{marginBottom:16}}>
               {planTodos.map((t,i)=><div key={i} className="plan-todo-item">
-                <div className={`todo-check ${t.done?"done":""}`} onClick={()=>togglePlanTodo(i)}/>
+                <div className={`todo-check ${t.done?"done":""}`} onClick={()=>{haptic("light");togglePlanTodo(i);}}/>
                 <span className={`plan-todo-text ${t.done?"done":""}`}>{t.text}</span>
               </div>)}
             </div>
@@ -944,7 +1131,7 @@ const habitDays=isMobile?lastNDays(7):last28Days();
       {!isPro&&<div style={{background:"var(--amber-dim)",border:"1px solid rgba(200,136,42,0.3)",borderRadius:14,padding:"20px",marginBottom:16,textAlign:"center"}}>
         <div style={{fontFamily:"Playfair Display,serif",fontSize:16,color:"var(--cream)",marginBottom:6}}>Patterns & Insights</div>
         <p style={{fontSize:13,color:"var(--text-muted)",marginBottom:12}}>Upgrade to Pro to unlock full pattern analysis, stressor tracking, and weekly digests.</p>
-        <button onClick={()=>setShowUpgrade(true)} style={{padding:"10px 20px",borderRadius:10,background:"var(--amber)",border:"none",color:"#0e0c0a",fontFamily:"DM Sans,sans-serif",fontSize:13,fontWeight:500,cursor:"pointer"}}>Unlock with Pro ✦</button>
+        <button onClick={()=>{setShowUpgrade(true);loadIAPPackages();}} style={{padding:"10px 20px",borderRadius:10,background:"var(--amber)",border:"none",color:"#0e0c0a",fontFamily:"DM Sans,sans-serif",fontSize:13,fontWeight:500,cursor:"pointer"}}>Unlock with Pro ✦</button>
       </div>}
       <div className="date-header"><div className="date-label">your patterns</div><div className="date-main">{monthYear}</div></div>
       <div style={{filter:isPro?"none":"blur(3px)",pointerEvents:isPro?"auto":"none",userSelect:isPro?"auto":"none"}}>
@@ -963,9 +1150,16 @@ const habitDays=isMobile?lastNDays(7):last28Days();
         <button className="digest-gen-btn" onClick={handleGenerateDigest} disabled={generatingDigest||entries.length===0}>{generatingDigest?<><div className="loading-dots" style={{padding:0}}><span/><span/><span/></div> Writing your digest...</>:<><span>✦</span> Generate this week's digest</>}</button>
         {digest&&<div className="digest-card"><div className="digest-week">Week of {shortDate(weekDates[0])} — {shortDate(weekDates[6])}</div>{digest.headline&&<div className="digest-headline">"{digest.headline}"</div>}{digest.highlight&&<div className="digest-section"><div className="digest-section-label">Highlight</div><div className="digest-body">{digest.highlight}</div></div>}{digest.pattern&&<div className="digest-section"><div className="digest-section-label">Pattern noticed</div><div className="digest-body">{digest.pattern}</div></div>}{digest.nudge&&<div className="digest-section"><div className="digest-section-label">For next week</div><div className="digest-nudge">{digest.nudge}</div></div>}</div>}
       </div>
-      <div style={{display:"flex",gap:8,marginBottom:16}}>
-  {["week","month","year"].map(p=><button key={p} onClick={()=>setPatternPeriod(p)} style={{padding:"6px 14px",borderRadius:20,border:"1px solid var(--border)",background:patternPeriod===p?"var(--amber)":"transparent",color:patternPeriod===p?"#0e0c0a":"var(--text-muted)",fontFamily:"DM Sans,sans-serif",fontSize:12,cursor:"pointer"}}>{p.charAt(0).toUpperCase()+p.slice(1)}</button>)}
-</div>
+      <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:20,flexWrap:"wrap"}}>
+        <div style={{display:"flex",gap:4}}>
+          {["week","month","year"].map(p=><button key={p} onClick={()=>{setPatternPeriod(p);setPatternOffset(0);}} style={{padding:"6px 14px",borderRadius:20,border:"1px solid var(--border)",background:patternPeriod===p?"var(--amber)":"transparent",color:patternPeriod===p?"#0e0c0a":"var(--text-muted)",fontFamily:"DM Sans,sans-serif",fontSize:12,cursor:"pointer",transition:"all 0.15s"}}>{p.charAt(0).toUpperCase()+p.slice(1)}</button>)}
+        </div>
+        <div style={{display:"flex",alignItems:"center",gap:8,marginLeft:"auto"}}>
+          <button onClick={()=>setPatternOffset(p=>p+1)} style={{background:"none",border:"1px solid var(--border)",borderRadius:8,padding:"4px 10px",color:"var(--text-muted)",cursor:"pointer",fontSize:13,fontFamily:"DM Sans,sans-serif",lineHeight:1}}>←</button>
+          <span style={{fontSize:12,color:"var(--text-muted)",minWidth:100,textAlign:"center",fontStyle:"italic"}}>{periodLabel}</span>
+          <button onClick={()=>setPatternOffset(p=>Math.max(0,p-1))} disabled={patternOffset===0} style={{background:"none",border:"1px solid var(--border)",borderRadius:8,padding:"4px 10px",color:patternOffset===0?"var(--text-dim)":"var(--text-muted)",cursor:patternOffset===0?"default":"pointer",fontSize:13,fontFamily:"DM Sans,sans-serif",lineHeight:1,opacity:patternOffset===0?0.4:1}}>→</button>
+        </div>
+      </div>
 <div className="pattern-card"><h3>Consistent stressors</h3><p style={{marginBottom:16}}>What comes up most when you're feeling friction.</p>{STRESS_PATTERNS.length===0?<div style={{fontSize:13,color:"var(--text-dim)",fontStyle:"italic"}}>No patterns yet — keep journaling and they'll appear here.</div>:<div className="bar-chart">{STRESS_PATTERNS.map(p=><div key={p.label} className="bar-row"><div className="bar-label">{p.label}</div><div className="bar-track"><div className="bar-fill stress" style={{width:`${p.pct}%`}}/></div><div className="bar-pct">{p.count}x</div></div>)}</div>}</div>
       <div className="pattern-card"><h3>What lights you up</h3><p style={{marginBottom:16}}>Things consistently tied to your better days.</p>{JOY_PATTERNS.length===0?<div style={{fontSize:13,color:"var(--text-dim)",fontStyle:"italic"}}>No patterns yet — keep journaling and they'll appear here.</div>:<div className="bar-chart">{JOY_PATTERNS.map(p=><div key={p.label} className="bar-row"><div className="bar-label">{p.label}</div><div className="bar-track"><div className="bar-fill joy" style={{width:`${p.pct}%`}}/></div><div className="bar-pct">{p.count}x</div></div>)}</div>}</div>
       <div className="summary-card"><div className="summary-month">Monthly summary · {monthYear}</div>{monthlySummary?<div className="summary-text">{monthlySummary}</div>:<><div className="summary-text" style={{marginBottom:12}}>Generate a personal summary of your month based on your real entries.</div><button className="digest-gen-btn" onClick={handleGenerateMonthlySummary} disabled={generatingMonthlySummary||entries.length===0}>{generatingMonthlySummary?<><div className="loading-dots" style={{padding:0}}><span/><span/><span/></div> Writing your summary...</>:<><span>✦</span> Generate monthly summary</>}</button></>}</div>
@@ -1011,22 +1205,51 @@ const habitDays=isMobile?lastNDays(7):last28Days();
       </div>; })}
     </>}
 
-  {showUpgrade&&<>
-    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.7)",zIndex:200,backdropFilter:"blur(4px)"}} onClick={()=>setShowUpgrade(false)}/>
-    <div style={{position:"fixed",top:"50%",left:"50%",transform:"translate(-50%,-50%)",zIndex:201,background:"var(--surface)",border:"1px solid var(--border)",borderRadius:20,padding:"32px 24px",width:"calc(100vw - 48px)",maxWidth:380,textAlign:"center"}}>
-      <div style={{fontSize:32,marginBottom:12}}>✦</div>
-      <div style={{fontFamily:"Playfair Display,serif",fontSize:24,color:"var(--cream)",marginBottom:8}}>Throughline Pro</div>
-      <p style={{fontSize:14,color:"var(--text-muted)",lineHeight:1.65,marginBottom:24}}>Unlock unlimited entries, 30 AI reflections per month, full pattern insights, and weekly digests.</p>
-      <div style={{background:"var(--surface2)",borderRadius:14,padding:"16px",marginBottom:20}}>
-        {[["✦","30 AI reflections/month"],["📈","Full patterns & insights"],["📓","Unlimited entries"],["🗓","Weekly & monthly digests"]].map(([icon,label])=>(
-          <div key={label} style={{display:"flex",alignItems:"center",gap:10,padding:"6px 0",fontSize:13,color:"var(--text-muted)",textAlign:"left"}}>
-            <span>{icon}</span><span>{label}</span>
-          </div>
-        ))}
+  {showUpgrade&&(()=>{
+    // find monthly and annual packages from RC, fall back to static labels
+    const monthly=iapPackages.find(p=>p.packageType==="MONTHLY");
+    const annual=iapPackages.find(p=>p.packageType==="ANNUAL");
+    const monthlyPrice=monthly?.product?.priceString||"$4.99/month";
+    const annualPrice=annual?.product?.priceString||"$34.99/year";
+    return <>
+      <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.7)",zIndex:200,backdropFilter:"blur(4px)"}} onClick={()=>setShowUpgrade(false)}/>
+      <div style={{position:"fixed",top:"50%",left:"50%",transform:"translate(-50%,-50%)",zIndex:201,background:"var(--surface)",border:"1px solid var(--border)",borderRadius:20,padding:"32px 24px",width:"calc(100vw - 48px)",maxWidth:380,textAlign:"center"}}>
+        <div style={{fontSize:32,marginBottom:12}}>✦</div>
+        <div style={{fontFamily:"Playfair Display,serif",fontSize:24,color:"var(--cream)",marginBottom:8}}>Throughline Pro</div>
+        <p style={{fontSize:14,color:"var(--text-muted)",lineHeight:1.65,marginBottom:24}}>Unlock 30 AI reflections per month, full pattern insights, weekly digests, and more.</p>
+        <div style={{background:"var(--surface2)",borderRadius:14,padding:"16px",marginBottom:20}}>
+          {[["✦","30 AI reflections/month"],["📈","Full patterns & insights"],["📓","Unlimited entries"],["🗓","Weekly & monthly digests"]].map(([icon,label])=>(
+            <div key={label} style={{display:"flex",alignItems:"center",gap:10,padding:"6px 0",fontSize:13,color:"var(--text-muted)",textAlign:"left"}}>
+              <span>{icon}</span><span>{label}</span>
+            </div>
+          ))}
+        </div>
+        {iapLoading
+          ? <div className="loading-dots" style={{justifyContent:"center",marginBottom:20}}><span/><span/><span/></div>
+          : <>
+            <button onClick={()=>annual?handlePurchase(annual):null} disabled={!!purchasing} style={{width:"100%",padding:"14px",borderRadius:12,background:"var(--amber)",border:"none",color:"#0e0c0a",fontFamily:"DM Sans,sans-serif",fontSize:15,fontWeight:500,cursor:"pointer",marginBottom:10,opacity:purchasing?"0.6":"1"}}>
+              {purchasing===annual?.identifier?"Purchasing...":`${annualPrice}/year — Best value`}
+            </button>
+            <button onClick={()=>monthly?handlePurchase(monthly):null} disabled={!!purchasing} style={{width:"100%",padding:"14px",borderRadius:12,background:"transparent",border:"1px solid var(--border)",color:"var(--text-muted)",fontFamily:"DM Sans,sans-serif",fontSize:14,cursor:"pointer",marginBottom:16,opacity:purchasing?"0.6":"1"}}>
+              {purchasing===monthly?.identifier?"Purchasing...":`${monthlyPrice}/month`}
+            </button>
+          </>
+        }
+        <button onClick={handleRestorePurchases} disabled={restoring} style={{background:"none",border:"none",color:"var(--text-dim)",fontFamily:"DM Sans,sans-serif",fontSize:12,cursor:"pointer",display:"block",width:"100%",marginBottom:8}}>
+          {restoring?"Restoring...":"Restore purchases"}
+        </button>
+        <button onClick={()=>setShowUpgrade(false)} style={{background:"none",border:"none",color:"var(--text-dim)",fontFamily:"DM Sans,sans-serif",fontSize:13,cursor:"pointer"}}>Maybe later</button>
       </div>
-      <button style={{width:"100%",padding:"14px",borderRadius:12,background:"var(--amber)",border:"none",color:"#0e0c0a",fontFamily:"DM Sans,sans-serif",fontSize:15,fontWeight:500,cursor:"pointer",marginBottom:10}}>$4.99/month — Coming soon</button>
-      <button style={{width:"100%",padding:"14px",borderRadius:12,background:"transparent",border:"1px solid var(--border)",color:"var(--text-muted)",fontFamily:"DM Sans,sans-serif",fontSize:14,cursor:"pointer",marginBottom:16}}>$34.99/year — Coming soon</button>
-      <button onClick={()=>setShowUpgrade(false)} style={{background:"none",border:"none",color:"var(--text-dim)",fontFamily:"DM Sans,sans-serif",fontSize:13,cursor:"pointer"}}>Maybe later</button>
+    </>;
+  })()}
+  {showRating&&<>
+    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.6)",zIndex:200,backdropFilter:"blur(4px)"}} onClick={dismissRating}/>
+    <div className="rating-modal">
+      <div className="rating-star">✦</div>
+      <div className="rating-title">Loving Throughline?</div>
+      <div className="rating-sub">A quick review helps others find a place to reflect. It means a lot.</div>
+      <button className="rating-btn-primary" onClick={handleRate}>Leave a review ✦</button>
+      <button className="rating-btn-ghost" onClick={dismissRating}>Maybe later</button>
     </div>
   </>}
   </div></>);
