@@ -609,6 +609,37 @@ const {error}=await supabase.auth.resetPasswordForEmail(authEmail,{redirectTo:"h
     return next;
   });
   const resetPlan=()=>{ setDayPlan(null); setPlanInput(""); setPlanTodos([]); localStorage.removeItem(`dayplan_${todayStr}`); };
+
+  // ── Data export ──
+  const exportData=async(format)=>{
+    haptic("medium");
+    let content,filename,type;
+    if(format==="journal"){
+      const sorted=[...entries].sort((a,b)=>a.date.localeCompare(b.date));
+      content=`# My Throughline Journal\nExported ${new Date().toLocaleDateString("en-US",{month:"long",day:"numeric",year:"numeric"})}\n${sorted.map(e=>{
+        const mobj=e.mood?MOODS[e.mood-1]:null;
+        const lines=[`\n## ${formatDate(e.date)}`];
+        if(mobj) lines.push(`*Mood: ${mobj.label} ${mobj.emoji}*`);
+        lines.push(`\n${e.text}`);
+        if(e.insight) lines.push(`\n> ${e.insight}`);
+        if(e.stressTags?.length) lines.push(`\nStressors: ${e.stressTags.join(", ")}`);
+        if(e.joyTags?.length) lines.push(`Joy: ${e.joyTags.join(", ")}`);
+        if(e.todos?.length) lines.push(`\nTo-dos:\n${e.todos.map(t=>`- ${t}`).join("\n")}`);
+        return lines.join("\n");
+      }).join("\n\n---")}\n`;
+      filename=`throughline-journal-${todayStr}.md`; type="text/markdown";
+    } else {
+      content=JSON.stringify({exported:new Date().toISOString(),entries,habits,goals},null,2);
+      filename=`throughline-backup-${todayStr}.json`; type="application/json";
+    }
+    const file=new File([content],filename,{type});
+    if(navigator.share&&navigator.canShare?.({files:[file]})){
+      try{ await navigator.share({title:"Throughline export",files:[file]}); return; }catch(e){}
+    }
+    const url=URL.createObjectURL(file);
+    const a=document.createElement("a"); a.href=url; a.download=filename; a.click();
+    setTimeout(()=>URL.revokeObjectURL(url),1000);
+  };
   const now=new Date();
   let periodStartDate,periodEndDate,periodLabel;
   if(patternPeriod==="week"){
@@ -853,6 +884,10 @@ const habitDays=isMobile?lastNDays(7):last28Days();
             <a href="https://www.gethroughline.com/privacy-policy" target="_blank" rel="noreferrer" style={{fontSize:13,color:"var(--text-muted)",textDecoration:"none"}}>Privacy policy</a>
             <a href="https://www.gethroughline.com/terms-of-service" target="_blank" rel="noreferrer" style={{fontSize:13,color:"var(--text-muted)",textDecoration:"none"}}>Terms of service</a>
             <a href="mailto:privacy@gethroughline.com?subject=Throughline Feedback" style={{fontSize:13,color:"var(--text-muted)",textDecoration:"none"}}>Send feedback</a>
+            <div style={{height:"1px",background:"var(--border)",margin:"4px 0"}}/>
+            <div style={{fontSize:11,color:"var(--text-dim)",letterSpacing:"0.5px",marginBottom:8}}>EXPORT DATA</div>
+            <button onClick={()=>exportData("journal")} style={{background:"none",border:"none",color:"var(--text-muted)",fontFamily:"DM Sans,sans-serif",fontSize:13,cursor:"pointer",textAlign:"left",padding:0}}>Export journal as Markdown</button>
+            <button onClick={()=>exportData("json")} style={{background:"none",border:"none",color:"var(--text-muted)",fontFamily:"DM Sans,sans-serif",fontSize:13,cursor:"pointer",textAlign:"left",padding:0}}>Export full backup as JSON</button>
             <div style={{height:"1px",background:"var(--border)",margin:"4px 0"}}/>
             <div style={{fontSize:11,color:"var(--text-dim)",letterSpacing:"0.5px",marginBottom:4}}>NOTIFICATIONS</div>
             <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8}}>
