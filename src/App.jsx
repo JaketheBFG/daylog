@@ -409,6 +409,12 @@ const [selectedDate,setSelectedDate]=useState(todayStr);
   // Rating
   const [showRating,setShowRating]=useState(false);
 
+  // IAP
+  const [iapPackages,setIapPackages]=useState([]);
+  const [iapLoading,setIapLoading]=useState(false);
+  const [purchasing,setPurchasing]=useState(null); // packageId being purchased
+  const [restoring,setRestoring]=useState(false);
+
   // Digest / Summary
   const [digest,setDigest]=useState(null);
   const [patternPeriod,setPatternPeriod]=useState("month");
@@ -455,6 +461,64 @@ const [editingText,setEditingText]=useState("");
     setNotifTime(time);
     await supabase.auth.updateUser({data:{notif_time:time}});
     scheduleNotification(time);
+  };
+
+  // ── RevenueCat / IAP ──
+  useEffect(()=>{
+    if(!session||!window.Capacitor) return;
+    const key=import.meta.env.VITE_REVENUECAT_IOS_KEY;
+    if(!key) return;
+    (async()=>{
+      try{
+        const {Purchases,LOG_LEVEL}=await import("@revenuecat/purchases-capacitor");
+        await Purchases.setLogLevel({level:LOG_LEVEL.ERROR});
+        await Purchases.configure({apiKey:key,appUserID:session.user.id});
+        const {customerInfo}=await Purchases.getCustomerInfo();
+        if(customerInfo.entitlements.active["pro"]){
+          setIsPro(true);
+          await supabase.from("profiles").upsert({id:session.user.id,is_pro:true},{onConflict:"id"});
+        }
+      }catch(e){ console.log("RC init",e); }
+    })();
+  },[session?.user?.id]);
+
+  const loadIAPPackages=async()=>{
+    if(!window.Capacitor||iapPackages.length) return;
+    setIapLoading(true);
+    try{
+      const {Purchases}=await import("@revenuecat/purchases-capacitor");
+      const {offerings}=await Purchases.getOfferings();
+      setIapPackages(offerings.current?.availablePackages||[]);
+    }catch(e){}
+    setIapLoading(false);
+  };
+
+  const handlePurchase=async(pkg)=>{
+    if(!window.Capacitor) return;
+    haptic("medium"); setPurchasing(pkg.identifier);
+    try{
+      const {Purchases}=await import("@revenuecat/purchases-capacitor");
+      const {customerInfo}=await Purchases.purchasePackage({aPackage:pkg});
+      if(customerInfo.entitlements.active["pro"]){
+        await supabase.from("profiles").upsert({id:session.user.id,is_pro:true},{onConflict:"id"});
+        setIsPro(true); setShowUpgrade(false); haptic("heavy");
+      }
+    }catch(e){ if(!e.message?.includes("CANCELLED")) alert("Purchase failed — please try again."); }
+    setPurchasing(null);
+  };
+
+  const handleRestorePurchases=async()=>{
+    if(!window.Capacitor) return;
+    haptic("light"); setRestoring(true);
+    try{
+      const {Purchases}=await import("@revenuecat/purchases-capacitor");
+      const {customerInfo}=await Purchases.restorePurchases();
+      if(customerInfo.entitlements.active["pro"]){
+        await supabase.from("profiles").upsert({id:session.user.id,is_pro:true},{onConflict:"id"});
+        setIsPro(true); setShowUpgrade(false);
+      } else { alert("No active subscription found."); }
+    }catch(e){}
+    setRestoring(false);
   };
 
   // ── Haptics ──
@@ -895,6 +959,8 @@ const habitDays=isMobile?lastNDays(7):last28Days();
               <input type="time" value={notifTime} onChange={e=>updateNotifTime(e.target.value)} style={{background:"var(--surface)",border:"1px solid var(--border)",borderRadius:8,padding:"5px 8px",color:"var(--text)",fontFamily:"DM Sans,sans-serif",fontSize:13,outline:"none",cursor:"pointer",colorScheme:"dark"}}/>
             </div>
             <div style={{height:"1px",background:"var(--border)",margin:"4px 0"}}/>
+            {!isPro&&<button onClick={()=>{setShowSettings(false);setShowUpgrade(true);loadIAPPackages();}} style={{background:"none",border:"none",color:"var(--amber-soft)",fontFamily:"DM Sans,sans-serif",fontSize:13,cursor:"pointer",textAlign:"left",padding:0}}>Upgrade to Pro ✦</button>}
+            {isPro&&<button onClick={()=>window.open("https://apps.apple.com/account/subscriptions","_blank")} style={{background:"none",border:"none",color:"var(--text-muted)",fontFamily:"DM Sans,sans-serif",fontSize:13,cursor:"pointer",textAlign:"left",padding:0}}>Manage subscription</button>}
             <button onClick={handleSignOut} style={{background:"none",border:"none",color:"var(--text-muted)",fontFamily:"DM Sans,sans-serif",fontSize:13,cursor:"pointer",textAlign:"left",padding:0}}>Sign out</button>
             <button onClick={async()=>{
               if(!window.confirm("Delete your account? This will permanently delete all your entries, habits and goals. This cannot be undone.")) return;
@@ -1065,7 +1131,7 @@ const habitDays=isMobile?lastNDays(7):last28Days();
       {!isPro&&<div style={{background:"var(--amber-dim)",border:"1px solid rgba(200,136,42,0.3)",borderRadius:14,padding:"20px",marginBottom:16,textAlign:"center"}}>
         <div style={{fontFamily:"Playfair Display,serif",fontSize:16,color:"var(--cream)",marginBottom:6}}>Patterns & Insights</div>
         <p style={{fontSize:13,color:"var(--text-muted)",marginBottom:12}}>Upgrade to Pro to unlock full pattern analysis, stressor tracking, and weekly digests.</p>
-        <button onClick={()=>setShowUpgrade(true)} style={{padding:"10px 20px",borderRadius:10,background:"var(--amber)",border:"none",color:"#0e0c0a",fontFamily:"DM Sans,sans-serif",fontSize:13,fontWeight:500,cursor:"pointer"}}>Unlock with Pro ✦</button>
+        <button onClick={()=>{setShowUpgrade(true);loadIAPPackages();}} style={{padding:"10px 20px",borderRadius:10,background:"var(--amber)",border:"none",color:"#0e0c0a",fontFamily:"DM Sans,sans-serif",fontSize:13,fontWeight:500,cursor:"pointer"}}>Unlock with Pro ✦</button>
       </div>}
       <div className="date-header"><div className="date-label">your patterns</div><div className="date-main">{monthYear}</div></div>
       <div style={{filter:isPro?"none":"blur(3px)",pointerEvents:isPro?"auto":"none",userSelect:isPro?"auto":"none"}}>
@@ -1139,24 +1205,43 @@ const habitDays=isMobile?lastNDays(7):last28Days();
       </div>; })}
     </>}
 
-  {showUpgrade&&<>
-    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.7)",zIndex:200,backdropFilter:"blur(4px)"}} onClick={()=>setShowUpgrade(false)}/>
-    <div style={{position:"fixed",top:"50%",left:"50%",transform:"translate(-50%,-50%)",zIndex:201,background:"var(--surface)",border:"1px solid var(--border)",borderRadius:20,padding:"32px 24px",width:"calc(100vw - 48px)",maxWidth:380,textAlign:"center"}}>
-      <div style={{fontSize:32,marginBottom:12}}>✦</div>
-      <div style={{fontFamily:"Playfair Display,serif",fontSize:24,color:"var(--cream)",marginBottom:8}}>Throughline Pro</div>
-      <p style={{fontSize:14,color:"var(--text-muted)",lineHeight:1.65,marginBottom:24}}>Unlock unlimited entries, 30 AI reflections per month, full pattern insights, and weekly digests.</p>
-      <div style={{background:"var(--surface2)",borderRadius:14,padding:"16px",marginBottom:20}}>
-        {[["✦","30 AI reflections/month"],["📈","Full patterns & insights"],["📓","Unlimited entries"],["🗓","Weekly & monthly digests"]].map(([icon,label])=>(
-          <div key={label} style={{display:"flex",alignItems:"center",gap:10,padding:"6px 0",fontSize:13,color:"var(--text-muted)",textAlign:"left"}}>
-            <span>{icon}</span><span>{label}</span>
-          </div>
-        ))}
+  {showUpgrade&&(()=>{
+    // find monthly and annual packages from RC, fall back to static labels
+    const monthly=iapPackages.find(p=>p.packageType==="MONTHLY");
+    const annual=iapPackages.find(p=>p.packageType==="ANNUAL");
+    const monthlyPrice=monthly?.product?.priceString||"$4.99/month";
+    const annualPrice=annual?.product?.priceString||"$34.99/year";
+    return <>
+      <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.7)",zIndex:200,backdropFilter:"blur(4px)"}} onClick={()=>setShowUpgrade(false)}/>
+      <div style={{position:"fixed",top:"50%",left:"50%",transform:"translate(-50%,-50%)",zIndex:201,background:"var(--surface)",border:"1px solid var(--border)",borderRadius:20,padding:"32px 24px",width:"calc(100vw - 48px)",maxWidth:380,textAlign:"center"}}>
+        <div style={{fontSize:32,marginBottom:12}}>✦</div>
+        <div style={{fontFamily:"Playfair Display,serif",fontSize:24,color:"var(--cream)",marginBottom:8}}>Throughline Pro</div>
+        <p style={{fontSize:14,color:"var(--text-muted)",lineHeight:1.65,marginBottom:24}}>Unlock 30 AI reflections per month, full pattern insights, weekly digests, and more.</p>
+        <div style={{background:"var(--surface2)",borderRadius:14,padding:"16px",marginBottom:20}}>
+          {[["✦","30 AI reflections/month"],["📈","Full patterns & insights"],["📓","Unlimited entries"],["🗓","Weekly & monthly digests"]].map(([icon,label])=>(
+            <div key={label} style={{display:"flex",alignItems:"center",gap:10,padding:"6px 0",fontSize:13,color:"var(--text-muted)",textAlign:"left"}}>
+              <span>{icon}</span><span>{label}</span>
+            </div>
+          ))}
+        </div>
+        {iapLoading
+          ? <div className="loading-dots" style={{justifyContent:"center",marginBottom:20}}><span/><span/><span/></div>
+          : <>
+            <button onClick={()=>annual?handlePurchase(annual):null} disabled={!!purchasing} style={{width:"100%",padding:"14px",borderRadius:12,background:"var(--amber)",border:"none",color:"#0e0c0a",fontFamily:"DM Sans,sans-serif",fontSize:15,fontWeight:500,cursor:"pointer",marginBottom:10,opacity:purchasing?"0.6":"1"}}>
+              {purchasing===annual?.identifier?"Purchasing...":`${annualPrice}/year — Best value`}
+            </button>
+            <button onClick={()=>monthly?handlePurchase(monthly):null} disabled={!!purchasing} style={{width:"100%",padding:"14px",borderRadius:12,background:"transparent",border:"1px solid var(--border)",color:"var(--text-muted)",fontFamily:"DM Sans,sans-serif",fontSize:14,cursor:"pointer",marginBottom:16,opacity:purchasing?"0.6":"1"}}>
+              {purchasing===monthly?.identifier?"Purchasing...":`${monthlyPrice}/month`}
+            </button>
+          </>
+        }
+        <button onClick={handleRestorePurchases} disabled={restoring} style={{background:"none",border:"none",color:"var(--text-dim)",fontFamily:"DM Sans,sans-serif",fontSize:12,cursor:"pointer",display:"block",width:"100%",marginBottom:8}}>
+          {restoring?"Restoring...":"Restore purchases"}
+        </button>
+        <button onClick={()=>setShowUpgrade(false)} style={{background:"none",border:"none",color:"var(--text-dim)",fontFamily:"DM Sans,sans-serif",fontSize:13,cursor:"pointer"}}>Maybe later</button>
       </div>
-      <button style={{width:"100%",padding:"14px",borderRadius:12,background:"var(--amber)",border:"none",color:"#0e0c0a",fontFamily:"DM Sans,sans-serif",fontSize:15,fontWeight:500,cursor:"pointer",marginBottom:10}}>$4.99/month — Coming soon</button>
-      <button style={{width:"100%",padding:"14px",borderRadius:12,background:"transparent",border:"1px solid var(--border)",color:"var(--text-muted)",fontFamily:"DM Sans,sans-serif",fontSize:14,cursor:"pointer",marginBottom:16}}>$34.99/year — Coming soon</button>
-      <button onClick={()=>setShowUpgrade(false)} style={{background:"none",border:"none",color:"var(--text-dim)",fontFamily:"DM Sans,sans-serif",fontSize:13,cursor:"pointer"}}>Maybe later</button>
-    </div>
-  </>}
+    </>;
+  })()}
   {showRating&&<>
     <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.6)",zIndex:200,backdropFilter:"blur(4px)"}} onClick={dismissRating}/>
     <div className="rating-modal">
