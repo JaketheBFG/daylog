@@ -554,6 +554,10 @@ const [editingText,setEditingText]=useState("");
   // ── Auth listener ──
   useEffect(()=>{
     supabase.auth.getSession().then(({data:{session}})=>{
+      const hash = window.location.hash;
+      const query = window.location.search;
+      const isRecovery = hash.includes("type=recovery") || query.includes("type=recovery");
+      if(isRecovery){ setAuthMode("reset"); setAuthLoading(false); return; }
       setSession(session);
       setAuthLoading(false);
       if(session){
@@ -564,9 +568,6 @@ const [editingText,setEditingText]=useState("");
         if(meta?.notif_time) setNotifTime(meta.notif_time);
       }
     });
-    const hash = window.location.hash;
-const query = window.location.search;
-if(hash.includes("type=recovery") || query.includes("type=recovery")) setAuthMode("reset");
     const {data:{subscription}}=supabase.auth.onAuthStateChange((event,session)=>{
       if(event==="PASSWORD_RECOVERY"){ setSession(null); setAuthMode("reset"); return; }
       setSession(session);
