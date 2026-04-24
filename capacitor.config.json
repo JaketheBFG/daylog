@@ -4,6 +4,8 @@
   "webDir": "dist",
   "ios": {
     "contentInset": "always",
-    "allowsLinkPreview": false
+    "allowsLinkPreview": false,
+    "keyboardResize": "body",
+    "backgroundColor": "#0e0c0a"
   }
 }
