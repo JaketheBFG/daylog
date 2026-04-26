@@ -1101,7 +1101,19 @@ const habitDays=isMobile?lastNDays(7):last28Days();
 {result?.error&&<div className="entry-card"><div className="entry-prompt">{result.rateLimit?"You've used all 5 reflections this month":"Couldn't parse that — try again or check your connection."}</div></div>}    </>}
 
     {/* ── PLAN ── */}
-    {tab==="plan"&&<>
+    {tab==="plan"&&entries.length<3&&<>
+      <div className="date-header">
+        <div className="date-label">unlocking soon</div>
+        <div className="date-main">Plan Your Day</div>
+      </div>
+      <div style={{textAlign:"center",padding:"48px 24px",background:"var(--surface)",borderRadius:14,border:"1px solid var(--border)"}}>
+        <div style={{fontSize:36,marginBottom:14,opacity:0.4}}>✦</div>
+        <div style={{fontFamily:"Playfair Display,serif",fontSize:22,color:"var(--cream)",marginBottom:10}}>{3-entries.length} more {3-entries.length===1?"entry":"entries"}</div>
+        <p style={{fontSize:14,color:"var(--text-muted)",lineHeight:1.7,maxWidth:300,margin:"0 auto"}}>Plan Your Day works best once we understand your rhythm. Log a few reflections first and this will unlock.</p>
+        <button onClick={()=>{haptic("light");setTab("today");}} style={{marginTop:20,padding:"10px 20px",borderRadius:10,background:"var(--amber)",border:"none",color:"#0e0c0a",fontFamily:"DM Sans,sans-serif",fontSize:13,fontWeight:500,cursor:"pointer"}}>Log today's entry →</button>
+      </div>
+    </>}
+    {tab==="plan"&&entries.length>=3&&<>
       <div className="date-header">
         <div className="date-label">set your intention</div>
         <div className="date-main">Plan Your Day</div>
@@ -1160,7 +1172,19 @@ const habitDays=isMobile?lastNDays(7):last28Days();
     </>}
 
     {/* ── PATTERNS ── */}
-    {tab==="patterns"&&<>
+    {tab==="patterns"&&entries.length<7&&<>
+      <div className="date-header">
+        <div className="date-label">unlocking soon</div>
+        <div className="date-main">Patterns</div>
+      </div>
+      <div style={{textAlign:"center",padding:"48px 24px",background:"var(--surface)",borderRadius:14,border:"1px solid var(--border)"}}>
+        <div style={{fontSize:36,marginBottom:14,opacity:0.4}}>✦</div>
+        <div style={{fontFamily:"Playfair Display,serif",fontSize:22,color:"var(--cream)",marginBottom:10}}>{7-entries.length} more {7-entries.length===1?"entry":"entries"}</div>
+        <p style={{fontSize:14,color:"var(--text-muted)",lineHeight:1.7,maxWidth:300,margin:"0 auto"}}>Patterns need a week of data to be meaningful. Keep journaling and this will unlock with your stress and joy categories, weekly digests, and trends.</p>
+        <button onClick={()=>{haptic("light");setTab("today");}} style={{marginTop:20,padding:"10px 20px",borderRadius:10,background:"var(--amber)",border:"none",color:"#0e0c0a",fontFamily:"DM Sans,sans-serif",fontSize:13,fontWeight:500,cursor:"pointer"}}>Log today's entry →</button>
+      </div>
+    </>}
+    {tab==="patterns"&&entries.length>=7&&<>
       {!isPro&&<div style={{background:"var(--amber-dim)",border:"1px solid rgba(200,136,42,0.3)",borderRadius:14,padding:"20px",marginBottom:16,textAlign:"center"}}>
         <div style={{fontFamily:"Playfair Display,serif",fontSize:16,color:"var(--cream)",marginBottom:6}}>Patterns & Insights</div>
         <p style={{fontSize:13,color:"var(--text-muted)",marginBottom:12}}>Upgrade to Pro to unlock full pattern analysis, stressor tracking, and weekly digests.</p>
@@ -1185,7 +1209,7 @@ const habitDays=isMobile?lastNDays(7):last28Days();
       </div>
       <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:20,flexWrap:"wrap"}}>
         <div style={{display:"flex",gap:4}}>
-          {["week","month","year"].map(p=><button key={p} onClick={()=>{setPatternPeriod(p);setPatternOffset(0);}} style={{padding:"6px 14px",borderRadius:20,border:"1px solid var(--border)",background:patternPeriod===p?"var(--amber)":"transparent",color:patternPeriod===p?"#0e0c0a":"var(--text-muted)",fontFamily:"DM Sans,sans-serif",fontSize:12,cursor:"pointer",transition:"all 0.15s"}}>{p.charAt(0).toUpperCase()+p.slice(1)}</button>)}
+          {["week","month","year"].map(p=>{ const locked=(p==="month"||p==="year")&&entries.length<20; return <button key={p} onClick={()=>{ if(locked) return; setPatternPeriod(p);setPatternOffset(0);}} disabled={locked} title={locked?`Unlocks at 20 entries (${20-entries.length} more)`:""} style={{padding:"6px 14px",borderRadius:20,border:"1px solid var(--border)",background:patternPeriod===p?"var(--amber)":"transparent",color:patternPeriod===p?"#0e0c0a":locked?"var(--text-dim)":"var(--text-muted)",fontFamily:"DM Sans,sans-serif",fontSize:12,cursor:locked?"not-allowed":"pointer",opacity:locked?0.5:1,transition:"all 0.15s"}}>{p.charAt(0).toUpperCase()+p.slice(1)}{locked&&" 🔒"}</button>; })}
         </div>
         <div style={{display:"flex",alignItems:"center",gap:8,marginLeft:"auto"}}>
           <button onClick={()=>setPatternOffset(p=>p+1)} style={{background:"none",border:"1px solid var(--border)",borderRadius:8,padding:"4px 10px",color:"var(--text-muted)",cursor:"pointer",fontSize:13,fontFamily:"DM Sans,sans-serif",lineHeight:1}}>←</button>
