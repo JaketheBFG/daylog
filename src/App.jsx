@@ -429,6 +429,8 @@ const [editingText,setEditingText]=useState("");
   const [generatingDigest,setGeneratingDigest]=useState(false);
   const [monthlySummary,setMonthlySummary]=useState(null);
   const [generatingMonthlySummary,setGeneratingMonthlySummary]=useState(false);
+  const [referralCode,setReferralCode]=useState("");
+  const [referralCount,setReferralCount]=useState(0);
 
   // ── Load plan from localStorage ──
   useEffect(()=>{
@@ -598,6 +600,21 @@ const [editingText,setEditingText]=useState("");
       if(habitsRes.data?.length) setHabits(habitsRes.data.map(h=>({...h,checked:h.checked||{}})));
      if(goalsRes.data?.length) setGoals(goalsRes.data);
       if(profileRes.data) setIsPro(profileRes.data.is_pro && (!profileRes.data.pro_expires_at || new Date(profileRes.data.pro_expires_at) > new Date()));
+      // Referral code
+      let code=profileRes.data?.referral_code;
+      if(!code){ code=Math.random().toString(36).substring(2,8).toUpperCase(); await supabase.from("profiles").update({referral_code:code}).eq("id",uid); }
+      setReferralCode(code);
+      const {count:refCount}=await supabase.from("referrals").select("*",{count:"exact",head:true}).eq("referrer_id",uid).not("rewarded_at","is",null);
+      setReferralCount(refCount||0);
+      // Process pending referral from sign-up
+      const pendingRef=localStorage.getItem("tl_ref");
+      if(pendingRef){
+        localStorage.removeItem("tl_ref");
+        const {data:referrerProfile}=await supabase.from("profiles").select("id").eq("referral_code",pendingRef).single();
+        if(referrerProfile && referrerProfile.id!==uid){
+          await supabase.from("referrals").insert({referrer_id:referrerProfile.id,referred_id:uid}).onConflict("referred_id").ignore();
+        }
+      }
       setDbLoading(false);
     }
     loadAll();
@@ -618,8 +635,10 @@ const [editingText,setEditingText]=useState("");
   // ── Auth actions ──
   const handleSignUp = async()=>{
     setAuthSubmitting(true); setAuthError(""); setAuthSuccess("");
+    const refCode=new URLSearchParams(window.location.search).get("ref");
+    if(refCode) localStorage.setItem("tl_ref",refCode);
     const {error}=await supabase.auth.signUp({email:authEmail,password:authPassword,options:{data:{name:authName}}});
-    if(error) setAuthError(error.message);
+    if(error){ localStorage.removeItem("tl_ref"); setAuthError(error.message); }
     else setAuthSuccess("Check your email to confirm your account!");
     setAuthSubmitting(false);
   };
@@ -757,6 +776,15 @@ const entry={date:selectedDate,mood:todayMood,text,todos:parsed.todos||[],stress
         const newEntries=[{...data,stressTags:data.stress_tags||[],joyTags:data.joy_tags||[],stressCategories:data.stress_categories||[],joyCategories:data.joy_categories||[]},...entries];
         setEntries(newEntries);
         maybeShowRating(newEntries.length);
+        // Referral reward: trigger on 3rd entry
+        if(newEntries.length===3){
+          try{
+            const {data:referral}=await supabase.from("referrals").select("*").eq("referred_id",session.user.id).is("rewarded_at",null).single();
+            if(referral){
+              await fetch("/api/grant-referral",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({referralId:referral.id,referrerId:referral.referrer_id})});
+            }
+          }catch(e){}
+        }
       }
     }catch(e){ setResult({error:true}); }
     setLoading(false);
@@ -959,6 +987,10 @@ const habitDays=isMobile?lastNDays(7):last28Days();
               <span style={{fontSize:13,color:"var(--text-muted)"}}>Daily reminder</span>
               <input type="time" value={notifTime} onChange={e=>updateNotifTime(e.target.value)} style={{background:"var(--surface)",border:"1px solid var(--border)",borderRadius:8,padding:"5px 8px",color:"var(--text)",fontFamily:"DM Sans,sans-serif",fontSize:13,outline:"none",cursor:"pointer",colorScheme:"dark"}}/>
             </div>
+            <div style={{height:"1px",background:"var(--border)",margin:"4px 0"}}/>
+            <div style={{fontSize:11,color:"var(--text-dim)",letterSpacing:"0.5px",marginBottom:4}}>REFER A FRIEND</div>
+            <div style={{fontSize:13,color:"var(--text-muted)",lineHeight:1.5,marginBottom:6}}>Share your link — you get 30 days free Pro when a friend logs their first 3 entries.{referralCount>0&&<span style={{color:"var(--amber-soft)"}}> {referralCount} successful {referralCount===1?"referral":"referrals"} so far.</span>}</div>
+            {referralCode&&<button onClick={async()=>{ const url=`https://www.gethroughline.com/app?ref=${referralCode}`; try{ await navigator.share({title:"Throughline",text:"I've been using Throughline to reflect and grow — give it a try!",url}); }catch(e){ await navigator.clipboard.writeText(url); } haptic("light"); }} style={{background:"var(--surface)",border:"1px solid var(--border)",borderRadius:8,padding:"8px 12px",color:"var(--amber-soft)",fontFamily:"DM Sans,sans-serif",fontSize:13,cursor:"pointer",textAlign:"left",width:"100%"}}>Share your referral link →</button>}
             <div style={{height:"1px",background:"var(--border)",margin:"4px 0"}}/>
             {!isPro&&<button onClick={()=>{setShowSettings(false);setShowUpgrade(true);loadIAPPackages();}} style={{background:"none",border:"none",color:"var(--amber-soft)",fontFamily:"DM Sans,sans-serif",fontSize:13,cursor:"pointer",textAlign:"left",padding:0}}>Upgrade to Pro ✦</button>}
             {isPro&&<button onClick={()=>window.open("https://apps.apple.com/account/subscriptions","_blank")} style={{background:"none",border:"none",color:"var(--text-muted)",fontFamily:"DM Sans,sans-serif",fontSize:13,cursor:"pointer",textAlign:"left",padding:0}}>Manage subscription</button>}
