@@ -589,9 +589,9 @@
         <p class="feature-desc">Track what you're building. Set directions — not just tasks. Let the app suggest goals based on what you actually write about.</p>
       </div>
       <div class="feature-card fade-up">
-        <span class="feature-icon">✅</span>
-        <div class="feature-title">Tasks from your entries</div>
-        <p class="feature-desc">Throughline pulls action items out of your entries automatically and adds them to your task list so nothing slips through.</p>
+        <span class="feature-icon">☼</span>
+        <div class="feature-title">Plan your day</div>
+        <p class="feature-desc">Speak what's on your plate and Throughline turns it into a focused plan with priorities and a small to-do list to ground your day.</p>
       </div>
       <div class="feature-card fade-up">
         <span class="feature-icon">🔒</span>
@@ -632,28 +632,6 @@
     </div>
   </section>
 
-  <!-- TESTIMONIALS -->
-  <section id="testimonials" style="border-top: 1px solid var(--border);">
-    <div class="fade-up">
-      <div class="section-eyebrow">Early users</div>
-      <h2 class="section-title">What people are <em>saying</em></h2>
-    </div>
-    <div class="testimonials-grid">
-      <div class="testimonial-card fade-up">
-        <p class="testimonial-text">"I've tried every journaling app. This is the first one that actually made me feel understood."</p>
-        <div class="testimonial-author"><strong>Early beta user</strong>Designer, New York</div>
-      </div>
-      <div class="testimonial-card fade-up">
-        <p class="testimonial-text">"The voice entry feature changed everything. I just talk on my walk home and it handles the rest."</p>
-        <div class="testimonial-author"><strong>Early beta user</strong>Engineer, San Francisco</div>
-      </div>
-      <div class="testimonial-card fade-up">
-        <p class="testimonial-text">"Three weeks in and I can already see patterns I had no idea were there. It's kind of remarkable."</p>
-        <div class="testimonial-author"><strong>Early beta user</strong>Teacher, Chicago</div>
-      </div>
-    </div>
-  </section>
-
   <!-- CTA -->
   <div class="cta-section">
     <div class="cta-inner fade-up">
@@ -675,7 +653,7 @@
     <div class="footer-links">
       <a href="/privacy-policy">Privacy policy</a>
       <a href="/terms-of-service">Terms of service</a>
-      <a href="mailto:privacy@throughline.app">Contact</a>
+      <a href="mailto:privacy@gethroughline.com">Contact</a>
     </div>
     <div class="footer-copy">© 2026 Throughline</div>
   </footer>
@@ -693,10 +671,27 @@
     document.querySelectorAll('.fade-up').forEach(el => observer.observe(el));
 
     // Waitlist form
-    function handleWaitlist(e) {
+    async function handleWaitlist(e) {
       e.preventDefault();
-      document.getElementById('waitlist-success').style.display = 'block';
-      e.target.style.display = 'none';
+      const form = e.target;
+      const input = form.querySelector('input[type="email"]');
+      const button = form.querySelector('button');
+      const email = input.value.trim();
+      if (!email) return;
+      button.disabled = true; button.textContent = 'Joining...';
+      try {
+        const res = await fetch('/api/waitlist', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email })
+        });
+        if (!res.ok) throw new Error('failed');
+        document.getElementById('waitlist-success').style.display = 'block';
+        form.style.display = 'none';
+      } catch (err) {
+        button.disabled = false; button.textContent = 'Join waitlist →';
+        alert('Something went wrong — please try again.');
+      }
     }
   </script>
 </body>

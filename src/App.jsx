@@ -25,7 +25,7 @@ const STYLES = `
   @keyframes slideIn { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:none} }
 
   /* ── AUTH ── */
-  .auth-wrap { min-height:100vh; display:flex; align-items:center; justify-content:center; padding:24px; width:100%; }
+  .auth-wrap { min-height:100vh; display:flex; align-items:center; justify-content:center; padding:max(24px, env(safe-area-inset-top)) 24px max(24px, env(safe-area-inset-bottom)) 24px; width:100%; }
   .auth-card { max-width:420px; width:100%; animation:slideIn 0.5s ease; }
   .auth-logo { font-family:'Playfair Display',serif; font-size:36px; color:var(--cream); letter-spacing:-1px; margin-bottom:6px; text-align:center; }
   .auth-logo span { color:var(--amber-soft); font-style:italic; }
@@ -36,7 +36,7 @@ const STYLES = `
   .auth-tab.active { background:var(--surface); color:var(--text); }
   .auth-field { margin-bottom:14px; }
   .auth-label { font-size:11px; color:var(--text-muted); letter-spacing:0.5px; text-transform:uppercase; margin-bottom:6px; display:block; }
-  .auth-input { width:100%; background:var(--surface2); border:1px solid var(--border); border-radius:10px; padding:12px 14px; color:var(--text); font-family:'DM Sans',sans-serif; font-size:14px; font-weight:300; outline:none; transition:border-color 0.2s; }
+  .auth-input { width:100%; background:var(--surface2); border:1px solid var(--border); border-radius:10px; padding:12px 14px; color:var(--text); font-family:'DM Sans',sans-serif; font-size:16px; font-weight:300; outline:none; transition:border-color 0.2s; }
   .auth-input:focus { border-color:var(--amber); }
   .auth-input::placeholder { color:var(--text-dim); }
   .auth-btn { width:100%; padding:13px; border-radius:10px; font-size:14px; font-weight:500; cursor:pointer; border:none; background:var(--amber); color:#0e0c0a; font-family:'DM Sans',sans-serif; transition:all 0.2s; margin-top:6px; }
@@ -429,6 +429,8 @@ const [editingText,setEditingText]=useState("");
   const [generatingDigest,setGeneratingDigest]=useState(false);
   const [monthlySummary,setMonthlySummary]=useState(null);
   const [generatingMonthlySummary,setGeneratingMonthlySummary]=useState(false);
+  const [referralCode,setReferralCode]=useState("");
+  const [referralCount,setReferralCount]=useState(0);
 
   // ── Load plan from localStorage ──
   useEffect(()=>{
@@ -554,6 +556,10 @@ const [editingText,setEditingText]=useState("");
   // ── Auth listener ──
   useEffect(()=>{
     supabase.auth.getSession().then(({data:{session}})=>{
+      const hash = window.location.hash;
+      const query = window.location.search;
+      const isRecovery = hash.includes("type=recovery") || query.includes("type=recovery");
+      if(isRecovery){ setAuthMode("reset"); setAuthLoading(false); return; }
       setSession(session);
       setAuthLoading(false);
       if(session){
@@ -564,9 +570,6 @@ const [editingText,setEditingText]=useState("");
         if(meta?.notif_time) setNotifTime(meta.notif_time);
       }
     });
-    const hash = window.location.hash;
-const query = window.location.search;
-if(hash.includes("type=recovery") || query.includes("type=recovery")) setAuthMode("reset");
     const {data:{subscription}}=supabase.auth.onAuthStateChange((event,session)=>{
       if(event==="PASSWORD_RECOVERY"){ setSession(null); setAuthMode("reset"); return; }
       setSession(session);
@@ -597,6 +600,21 @@ if(hash.includes("type=recovery") || query.includes("type=recovery")) setAuthMod
       if(habitsRes.data?.length) setHabits(habitsRes.data.map(h=>({...h,checked:h.checked||{}})));
      if(goalsRes.data?.length) setGoals(goalsRes.data);
       if(profileRes.data) setIsPro(profileRes.data.is_pro && (!profileRes.data.pro_expires_at || new Date(profileRes.data.pro_expires_at) > new Date()));
+      // Referral code
+      let code=profileRes.data?.referral_code;
+      if(!code){ code=Math.random().toString(36).substring(2,8).toUpperCase(); await supabase.from("profiles").update({referral_code:code}).eq("id",uid); }
+      setReferralCode(code);
+      const {count:refCount}=await supabase.from("referrals").select("*",{count:"exact",head:true}).eq("referrer_id",uid).not("rewarded_at","is",null);
+      setReferralCount(refCount||0);
+      // Process pending referral from sign-up
+      const pendingRef=localStorage.getItem("tl_ref");
+      if(pendingRef){
+        localStorage.removeItem("tl_ref");
+        const {data:referrerProfile}=await supabase.from("profiles").select("id").eq("referral_code",pendingRef).single();
+        if(referrerProfile && referrerProfile.id!==uid){
+          await supabase.from("referrals").insert({referrer_id:referrerProfile.id,referred_id:uid}).onConflict("referred_id").ignore();
+        }
+      }
       setDbLoading(false);
     }
     loadAll();
@@ -617,8 +635,10 @@ if(hash.includes("type=recovery") || query.includes("type=recovery")) setAuthMod
   // ── Auth actions ──
   const handleSignUp = async()=>{
     setAuthSubmitting(true); setAuthError(""); setAuthSuccess("");
+    const refCode=new URLSearchParams(window.location.search).get("ref");
+    if(refCode) localStorage.setItem("tl_ref",refCode);
     const {error}=await supabase.auth.signUp({email:authEmail,password:authPassword,options:{data:{name:authName}}});
-    if(error) setAuthError(error.message);
+    if(error){ localStorage.removeItem("tl_ref"); setAuthError(error.message); }
     else setAuthSuccess("Check your email to confirm your account!");
     setAuthSubmitting(false);
   };
@@ -756,6 +776,15 @@ const entry={date:selectedDate,mood:todayMood,text,todos:parsed.todos||[],stress
         const newEntries=[{...data,stressTags:data.stress_tags||[],joyTags:data.joy_tags||[],stressCategories:data.stress_categories||[],joyCategories:data.joy_categories||[]},...entries];
         setEntries(newEntries);
         maybeShowRating(newEntries.length);
+        // Referral reward: trigger on 3rd entry
+        if(newEntries.length===3){
+          try{
+            const {data:referral}=await supabase.from("referrals").select("*").eq("referred_id",session.user.id).is("rewarded_at",null).single();
+            if(referral){
+              await fetch("/api/grant-referral",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({referralId:referral.id,referrerId:referral.referrer_id})});
+            }
+          }catch(e){}
+        }
       }
     }catch(e){ setResult({error:true}); }
     setLoading(false);
@@ -959,6 +988,10 @@ const habitDays=isMobile?lastNDays(7):last28Days();
               <input type="time" value={notifTime} onChange={e=>updateNotifTime(e.target.value)} style={{background:"var(--surface)",border:"1px solid var(--border)",borderRadius:8,padding:"5px 8px",color:"var(--text)",fontFamily:"DM Sans,sans-serif",fontSize:13,outline:"none",cursor:"pointer",colorScheme:"dark"}}/>
             </div>
             <div style={{height:"1px",background:"var(--border)",margin:"4px 0"}}/>
+            <div style={{fontSize:11,color:"var(--text-dim)",letterSpacing:"0.5px",marginBottom:4}}>REFER A FRIEND</div>
+            <div style={{fontSize:13,color:"var(--text-muted)",lineHeight:1.5,marginBottom:6}}>Share your link — you get 30 days free Pro when a friend logs their first 3 entries.{referralCount>0&&<span style={{color:"var(--amber-soft)"}}> {referralCount} successful {referralCount===1?"referral":"referrals"} so far.</span>}</div>
+            {referralCode&&<button onClick={async()=>{ const url=`https://www.gethroughline.com/app?ref=${referralCode}`; try{ await navigator.share({title:"Throughline",text:"I've been using Throughline to reflect and grow — give it a try!",url}); }catch(e){ await navigator.clipboard.writeText(url); } haptic("light"); }} style={{background:"var(--surface)",border:"1px solid var(--border)",borderRadius:8,padding:"8px 12px",color:"var(--amber-soft)",fontFamily:"DM Sans,sans-serif",fontSize:13,cursor:"pointer",textAlign:"left",width:"100%"}}>Share your referral link →</button>}
+            <div style={{height:"1px",background:"var(--border)",margin:"4px 0"}}/>
             {!isPro&&<button onClick={()=>{setShowSettings(false);setShowUpgrade(true);loadIAPPackages();}} style={{background:"none",border:"none",color:"var(--amber-soft)",fontFamily:"DM Sans,sans-serif",fontSize:13,cursor:"pointer",textAlign:"left",padding:0}}>Upgrade to Pro ✦</button>}
             {isPro&&<button onClick={()=>window.open("https://apps.apple.com/account/subscriptions","_blank")} style={{background:"none",border:"none",color:"var(--text-muted)",fontFamily:"DM Sans,sans-serif",fontSize:13,cursor:"pointer",textAlign:"left",padding:0}}>Manage subscription</button>}
             <button onClick={handleSignOut} style={{background:"none",border:"none",color:"var(--text-muted)",fontFamily:"DM Sans,sans-serif",fontSize:13,cursor:"pointer",textAlign:"left",padding:0}}>Sign out</button>
@@ -1068,7 +1101,19 @@ const habitDays=isMobile?lastNDays(7):last28Days();
 {result?.error&&<div className="entry-card"><div className="entry-prompt">{result.rateLimit?"You've used all 5 reflections this month":"Couldn't parse that — try again or check your connection."}</div></div>}    </>}
 
     {/* ── PLAN ── */}
-    {tab==="plan"&&<>
+    {tab==="plan"&&entries.length<3&&<>
+      <div className="date-header">
+        <div className="date-label">unlocking soon</div>
+        <div className="date-main">Plan Your Day</div>
+      </div>
+      <div style={{textAlign:"center",padding:"48px 24px",background:"var(--surface)",borderRadius:14,border:"1px solid var(--border)"}}>
+        <div style={{fontSize:36,marginBottom:14,opacity:0.4}}>✦</div>
+        <div style={{fontFamily:"Playfair Display,serif",fontSize:22,color:"var(--cream)",marginBottom:10}}>{3-entries.length} more {3-entries.length===1?"entry":"entries"}</div>
+        <p style={{fontSize:14,color:"var(--text-muted)",lineHeight:1.7,maxWidth:300,margin:"0 auto"}}>Plan Your Day works best once we understand your rhythm. Log a few reflections first and this will unlock.</p>
+        <button onClick={()=>{haptic("light");setTab("today");}} style={{marginTop:20,padding:"10px 20px",borderRadius:10,background:"var(--amber)",border:"none",color:"#0e0c0a",fontFamily:"DM Sans,sans-serif",fontSize:13,fontWeight:500,cursor:"pointer"}}>Log today's entry →</button>
+      </div>
+    </>}
+    {tab==="plan"&&entries.length>=3&&<>
       <div className="date-header">
         <div className="date-label">set your intention</div>
         <div className="date-main">Plan Your Day</div>
@@ -1127,7 +1172,19 @@ const habitDays=isMobile?lastNDays(7):last28Days();
     </>}
 
     {/* ── PATTERNS ── */}
-    {tab==="patterns"&&<>
+    {tab==="patterns"&&entries.length<7&&<>
+      <div className="date-header">
+        <div className="date-label">unlocking soon</div>
+        <div className="date-main">Patterns</div>
+      </div>
+      <div style={{textAlign:"center",padding:"48px 24px",background:"var(--surface)",borderRadius:14,border:"1px solid var(--border)"}}>
+        <div style={{fontSize:36,marginBottom:14,opacity:0.4}}>✦</div>
+        <div style={{fontFamily:"Playfair Display,serif",fontSize:22,color:"var(--cream)",marginBottom:10}}>{7-entries.length} more {7-entries.length===1?"entry":"entries"}</div>
+        <p style={{fontSize:14,color:"var(--text-muted)",lineHeight:1.7,maxWidth:300,margin:"0 auto"}}>Patterns need a week of data to be meaningful. Keep journaling and this will unlock with your stress and joy categories, weekly digests, and trends.</p>
+        <button onClick={()=>{haptic("light");setTab("today");}} style={{marginTop:20,padding:"10px 20px",borderRadius:10,background:"var(--amber)",border:"none",color:"#0e0c0a",fontFamily:"DM Sans,sans-serif",fontSize:13,fontWeight:500,cursor:"pointer"}}>Log today's entry →</button>
+      </div>
+    </>}
+    {tab==="patterns"&&entries.length>=7&&<>
       {!isPro&&<div style={{background:"var(--amber-dim)",border:"1px solid rgba(200,136,42,0.3)",borderRadius:14,padding:"20px",marginBottom:16,textAlign:"center"}}>
         <div style={{fontFamily:"Playfair Display,serif",fontSize:16,color:"var(--cream)",marginBottom:6}}>Patterns & Insights</div>
         <p style={{fontSize:13,color:"var(--text-muted)",marginBottom:12}}>Upgrade to Pro to unlock full pattern analysis, stressor tracking, and weekly digests.</p>
@@ -1152,7 +1209,7 @@ const habitDays=isMobile?lastNDays(7):last28Days();
       </div>
       <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:20,flexWrap:"wrap"}}>
         <div style={{display:"flex",gap:4}}>
-          {["week","month","year"].map(p=><button key={p} onClick={()=>{setPatternPeriod(p);setPatternOffset(0);}} style={{padding:"6px 14px",borderRadius:20,border:"1px solid var(--border)",background:patternPeriod===p?"var(--amber)":"transparent",color:patternPeriod===p?"#0e0c0a":"var(--text-muted)",fontFamily:"DM Sans,sans-serif",fontSize:12,cursor:"pointer",transition:"all 0.15s"}}>{p.charAt(0).toUpperCase()+p.slice(1)}</button>)}
+          {["week","month","year"].map(p=>{ const locked=(p==="month"||p==="year")&&entries.length<20; return <button key={p} onClick={()=>{ if(locked) return; setPatternPeriod(p);setPatternOffset(0);}} disabled={locked} title={locked?`Unlocks at 20 entries (${20-entries.length} more)`:""} style={{padding:"6px 14px",borderRadius:20,border:"1px solid var(--border)",background:patternPeriod===p?"var(--amber)":"transparent",color:patternPeriod===p?"#0e0c0a":locked?"var(--text-dim)":"var(--text-muted)",fontFamily:"DM Sans,sans-serif",fontSize:12,cursor:locked?"not-allowed":"pointer",opacity:locked?0.5:1,transition:"all 0.15s"}}>{p.charAt(0).toUpperCase()+p.slice(1)}{locked&&" 🔒"}</button>; })}
         </div>
         <div style={{display:"flex",alignItems:"center",gap:8,marginLeft:"auto"}}>
           <button onClick={()=>setPatternOffset(p=>p+1)} style={{background:"none",border:"1px solid var(--border)",borderRadius:8,padding:"4px 10px",color:"var(--text-muted)",cursor:"pointer",fontSize:13,fontFamily:"DM Sans,sans-serif",lineHeight:1}}>←</button>
