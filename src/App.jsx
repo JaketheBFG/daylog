@@ -971,7 +971,9 @@ const habitDays=isMobile?lastNDays(7):last28Days();
           <div style={{position:"fixed",inset:0,zIndex:99}} onClick={()=>setShowSettings(false)}/>
           <div style={{position:"fixed",top:80,left:16,right:16,zIndex:100,background:"var(--surface2)",border:"1px solid var(--border)",borderRadius:14,padding:"16px",display:"flex",flexDirection:"column",gap:10,boxShadow:"0 8px 32px rgba(0,0,0,0.4)"}}>
             <div style={{fontSize:12,color:"var(--text-dim)",letterSpacing:"0.5px",marginBottom:4}}>ACCOUNT</div>
-            {userName&&<div style={{fontSize:14,color:"var(--text-muted)"}}>{userName}</div>}
+            <div style={{display:"flex",gap:6,alignItems:"center"}}>
+              <input value={userName} onChange={e=>setUserName(e.target.value)} onBlur={async()=>{ await supabase.auth.updateUser({data:{name:userName}}); haptic("light"); }} placeholder="Your name" style={{flex:1,background:"var(--surface)",border:"1px solid var(--border)",borderRadius:8,padding:"6px 10px",color:"var(--text)",fontFamily:"DM Sans,sans-serif",fontSize:14,outline:"none"}}/>
+            </div>
             <div style={{fontSize:14,color:"var(--text-muted)"}}>{session?.user?.email}</div>
             <div style={{height:"1px",background:"var(--border)",margin:"4px 0"}}/>
             <a href="https://www.gethroughline.com/privacy-policy" target="_blank" rel="noreferrer" style={{fontSize:13,color:"var(--text-muted)",textDecoration:"none"}}>Privacy policy</a>
