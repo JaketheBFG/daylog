@@ -16,7 +16,7 @@ const STYLES = `
     --rose:#c4605a; --rose-dim:#3a1a18; --sage:#6a9e78; --sage-dim:#1a2e20;
     --sky:#6a9ec4; --sky-dim:#1a2a3a; --cream:#f0e8d8;
   }
-  body { background:var(--bg); color:var(--text); font-family:'DM Sans',sans-serif; font-weight:300; min-height:100vh; min-height:100dvh; overflow-x:hidden; display:flex; justify-content:center; padding-top:env(safe-area-inset-top); padding-bottom:env(safe-area-inset-bottom); padding-left:env(safe-area-inset-left); padding-right:env(safe-area-inset-right); }
+  body { background:var(--bg); color:var(--text); font-family:'DM Sans',sans-serif; font-weight:300; min-height:100vh; min-height:100dvh; overflow-x:hidden; display:flex; justify-content:center; padding-bottom:env(safe-area-inset-bottom); padding-left:env(safe-area-inset-left); padding-right:env(safe-area-inset-right); }
   .grain { position:fixed; inset:0; pointer-events:none; z-index:100; opacity:0.03; background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E"); }
   .glow { position:fixed; width:600px; height:600px; border-radius:50%; background:radial-gradient(circle,rgba(200,136,42,0.06) 0%,transparent 70%); pointer-events:none; top:-200px; left:50%; transform:translateX(-50%); }
   .app { max-width:720px; width:100%; padding:0 24px 80px; }  @keyframes fadeUp { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:none} }
@@ -77,7 +77,7 @@ const STYLES = `
   .ot-sub { font-size:11px; color:var(--text-muted); margin-top:3px; }
 
   /* ── NAV ── */
-  .nav { display:flex; align-items:center; justify-content:space-between; padding:28px 0 40px; border-bottom:1px solid var(--border); margin-bottom:40px; flex-wrap:wrap; gap:12px; }
+  .nav { display:flex; align-items:center; justify-content:space-between; padding:calc(env(safe-area-inset-top) + 8px) 0 40px; border-bottom:1px solid var(--border); margin-bottom:40px; flex-wrap:wrap; gap:12px; }
   .nav-logo { font-family:'Playfair Display',serif; font-size:22px; color:var(--cream); letter-spacing:-0.5px; }
   .nav-logo span { color:var(--amber-soft); font-style:italic; }
   .nav-right { display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
@@ -318,12 +318,14 @@ async function checkAndIncrementUsage(userId, isPro=false){
   return {allowed:true};
 }
 
+const API_BASE = (typeof window!=="undefined" && window.Capacitor) ? "https://www.gethroughline.com" : "";
+
 async function callClaude(prompt,maxTokens=1000,userId=null,isPro=false){
   if(userId){
     const result = await checkAndIncrementUsage(userId, isPro);
     if(!result.allowed) throw new Error("RATE_LIMIT");
   }
-  const res=await fetch("/api/reflect",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:maxTokens,messages:[{role:"user",content:prompt}]})});
+  const res=await fetch(`${API_BASE}/api/reflect`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:maxTokens,messages:[{role:"user",content:prompt}]})});
   const data=await res.json();
   return (data.content?.find(b=>b.type==="text")?.text||"{}").replace(/```json|```/g,"").trim();
 }
@@ -745,8 +747,8 @@ const {error}=await supabase.auth.resetPasswordForEmail(authEmail,{redirectTo:"h
   const filteredEntries=entries.filter(e=>e.date>=periodStartStr&&e.date<=periodEndStr);
   const stressTagCounts={};const joyTagCounts={};
   filteredEntries.forEach(e=>{
-    (e.stressCategories||e.stressTags||[]).forEach(t=>{stressTagCounts[t]=(stressTagCounts[t]||0)+1;});
-    (e.joyCategories||e.joyTags||[]).forEach(t=>{joyTagCounts[t]=(joyTagCounts[t]||0)+1;});
+    ((e.stressCategories?.length?e.stressCategories:e.stressTags)||[]).forEach(t=>{stressTagCounts[t]=(stressTagCounts[t]||0)+1;});
+    ((e.joyCategories?.length?e.joyCategories:e.joyTags)||[]).forEach(t=>{joyTagCounts[t]=(joyTagCounts[t]||0)+1;});
   });
   const maxStress=Math.max(1,...Object.values(stressTagCounts));const maxJoy=Math.max(1,...Object.values(joyTagCounts));
   const STRESS_PATTERNS=Object.entries(stressTagCounts).sort((a,b)=>b[1]-a[1]).slice(0,5).map(([label,count])=>({label,count,pct:Math.round(count/maxStress*100)}));
@@ -763,7 +765,7 @@ const {error}=await supabase.auth.resetPasswordForEmail(authEmail,{redirectTo:"h
   const dismissSuggested=(sg)=>setSuggestedGoals(p=>p.filter(x=>x!==sg));
   const deleteGoal=async(gid)=>{ setGoals(p=>p.filter(g=>g.id!==gid)); await supabase.from("goals").delete().eq("id",gid); };
   const addManualGoal=async()=>{ if(!newGoalText.trim()||!session)return; const g={id:"g"+Date.now(),title:newGoalText.trim(),why:"",icon:"✦",source:"mine",user_id:session.user.id}; setGoals(p=>[...p,g]); await supabase.from("goals").insert(g); setNewGoalText(""); setAddingGoal(false); };
-const handleSuggestGoals=async()=>{ setSuggestingGoals(true); try{ const s=await suggestGoals(entries,session.user.id,isPro); setSuggestedGoals(s.map(g=>({...g,id:"sg"+Date.now()+Math.random()}))); }catch(e){} setSuggestingGoals(false); };  const handleGenerateMonthlySummary=async()=>{ setGeneratingMonthlySummary(true); try{ const d=await generateMonthlySummary(entries,userName,session.user.id,isPro); setMonthlySummary(d.summary); }catch(e){} setGeneratingMonthlySummary(false); };
+const handleSuggestGoals=async()=>{ setSuggestingGoals(true); try{ const s=await suggestGoals(entries,session.user.id,isPro); setSuggestedGoals(s.map(g=>({...g,id:"sg"+Date.now()+Math.random()}))); }catch(e){console.error("suggestGoals failed:",e);} setSuggestingGoals(false); };  const handleGenerateMonthlySummary=async()=>{ setGeneratingMonthlySummary(true); try{ const d=await generateMonthlySummary(entries,userName,session.user.id,isPro); setMonthlySummary(d.summary); }catch(e){console.error("monthlySummary failed:",e);} setGeneratingMonthlySummary(false); };
 const handleGenerateDigest=async()=>{ setGeneratingDigest(true); try{ const d=await generateWeeklyDigest(entries,userName,session.user.id,isPro); setDigest(d); }catch(e){} setGeneratingDigest(false); };
   // ── Entry analysis ──
   const handleAnalyze=async()=>{
@@ -781,7 +783,7 @@ const entry={date:selectedDate,mood:todayMood,text,todos:parsed.todos||[],stress
           try{
             const {data:referral}=await supabase.from("referrals").select("*").eq("referred_id",session.user.id).is("rewarded_at",null).single();
             if(referral){
-              await fetch("/api/grant-referral",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({referralId:referral.id,referrerId:referral.referrer_id})});
+              await fetch(`${API_BASE}/api/grant-referral`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({referralId:referral.id,referrerId:referral.referrer_id})});
             }
           }catch(e){}
         }

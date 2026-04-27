@@ -3,7 +3,7 @@
   "appName": "Throughline",
   "webDir": "dist",
   "ios": {
-    "contentInset": "always",
+    "contentInset": "never",
     "allowsLinkPreview": false,
     "keyboardResize": "body",
     "backgroundColor": "#0e0c0a"
