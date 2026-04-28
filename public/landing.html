@@ -273,6 +273,46 @@
       max-width: 520px;
     }
 
+    /* ── SHOWCASE ── */
+    .showcase {
+      padding: 80px 24px 0;
+      border-top: 1px solid var(--border);
+    }
+    .showcase-scroll {
+      display: flex;
+      gap: 24px;
+      overflow-x: auto;
+      scroll-snap-type: x mandatory;
+      padding: 48px 24px 24px;
+      margin: 0 -24px;
+      -webkit-overflow-scrolling: touch;
+    }
+    .showcase-scroll::-webkit-scrollbar { display: none; }
+    .showcase-scroll { scrollbar-width: none; }
+    .showcase-card {
+      flex: 0 0 auto;
+      width: 280px;
+      scroll-snap-align: center;
+      border-radius: 32px;
+      overflow: hidden;
+      background: #0e0c0a;
+      box-shadow: 0 24px 64px rgba(0,0,0,0.5), 0 0 0 1px rgba(232,184,109,0.08);
+    }
+    .showcase-card img {
+      width: 100%;
+      display: block;
+    }
+    @media (min-width: 768px) {
+      .showcase-scroll {
+        justify-content: center;
+        flex-wrap: wrap;
+        overflow-x: visible;
+        padding: 48px 0 24px;
+        margin: 0;
+      }
+      .showcase-card { width: 240px; }
+    }
+
     /* ── FEATURES ── */
     .features-grid {
       display: grid;
@@ -559,6 +599,21 @@
       <div class="proof-label">Insights from your entries</div>
     </div>
   </div>
+
+  <!-- SHOWCASE -->
+  <section class="showcase">
+    <div class="fade-up">
+      <div class="section-eyebrow">A look inside</div>
+      <h2 class="section-title">Designed for <em>quiet daily use</em></h2>
+    </div>
+    <div class="showcase-scroll">
+      <div class="showcase-card"><img src="/screenshots/01-today.png" alt="Daily journal entry" loading="lazy"></div>
+      <div class="showcase-card"><img src="/screenshots/02-plan.png" alt="Plan your day" loading="lazy"></div>
+      <div class="showcase-card"><img src="/screenshots/03-patterns.png" alt="Patterns and insights" loading="lazy"></div>
+      <div class="showcase-card"><img src="/screenshots/04-goals.png" alt="Goal suggestions" loading="lazy"></div>
+      <div class="showcase-card"><img src="/screenshots/05-history.png" alt="Journal history" loading="lazy"></div>
+    </div>
+  </section>
 
   <!-- FEATURES -->
   <section id="features">
