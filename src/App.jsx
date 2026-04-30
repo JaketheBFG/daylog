@@ -320,6 +320,16 @@ async function checkAndIncrementUsage(userId, isPro=false){
 
 const API_BASE = (typeof window!=="undefined" && window.Capacitor) ? "https://www.gethroughline.com" : "";
 
+async function callClaudeRaw(prompt,maxTokens=500,userId=null,isPro=false){
+  if(userId){
+    const result=await checkAndIncrementUsage(userId,isPro);
+    if(!result.allowed) throw new Error("RATE_LIMIT");
+  }
+  const res=await fetch(`${API_BASE}/api/reflect`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:maxTokens,messages:[{role:"user",content:prompt}]})});
+  const data=await res.json();
+  return data.content?.find(b=>b.type==="text")?.text||"";
+}
+
 async function callClaude(prompt,maxTokens=1000,userId=null,isPro=false){
   if(userId){
     const result = await checkAndIncrementUsage(userId, isPro);
@@ -341,7 +351,7 @@ Also include stressCategories and joyCategories using ONLY these exact categorie
 Stress categories: ${STRESS_CATS.join(", ")}
 Joy categories: ${JOY_CATS.join(", ")}
 {"todos":["action item"],"stressTags":["specific tag"],"joyTags":["specific tag"],"stressCategories":["category"],"joyCategories":["category"],"insight":"One warm sentence."}
-Entry:\n${fullText}`,1000,userId,isPro)); 
+Entry:\n${fullText}`,500,userId,isPro));
 }
 async function suggestGoals(entries,userId=null,isPro=false){ return JSON.parse(await callClaude(`Suggest 3 personal growth goals based on these journal entries. Focus on happiness and wellbeing, NOT productivity.\n${entries.slice(0,5).map(e=>`${e.date}: ${e.text}`).join("\n")}\nRespond ONLY with valid JSON array:\n[{"title":"goal","why":"reason","icon":"emoji"}]`,1000,userId,isPro)); }async function generateMonthlySummary(entries,userName,userId=null,isPro=false){ return JSON.parse(await callClaude(`Write a warm monthly summary for ${userName||"this person"} based on their journal entries this month.\nEntries:\n${entries.slice(0,20).map(e=>`${e.date}: ${e.text}`).join("\n\n")}\nRespond ONLY with valid JSON:\n{"summary":"2-3 sentence warm paragraph summarizing their month, patterns, and growth"}`,600,userId,isPro)); }
 async function generateWeeklyDigest(entries,userName,userId=null,isPro=false){ return JSON.parse(await callClaude(`Write a personal weekly reflection for ${userName||"this person"}.\nEntries:\n${entries.slice(0,7).map(e=>`${e.date} (mood ${e.mood||"?"}/5): ${e.text}`).join("\n\n")}\nRespond ONLY with valid JSON:\n{"headline":"evocative sentence","highlight":"best moment","pattern":"recurring observation","nudge":"one kind suggestion for next week"}`,800,userId,isPro)); }
@@ -366,7 +376,7 @@ export default function App() {
   const [preferredTime, setPreferredTime] = useState("");
 
   // Core
-  const [tab,setTab]=useState("today");
+  const [tab,setTab]=useState("home");
   const [text,setText]=useState("");
   const [loading,setLoading]=useState(false);
   const [result,setResult]=useState(null);
@@ -396,7 +406,18 @@ const [selectedDate,setSelectedDate]=useState(todayStr);
   const [habits,setHabits]=useState([]);
   const [addingHabit,setAddingHabit]=useState(false);
   const [newHabitName,setNewHabitName]=useState("");
+  const [newHabitGoal,setNewHabitGoal]=useState("");
   const [newHabitColor,setNewHabitColor]=useState(HABIT_COLORS[0]);
+  const [expandedGoal,setExpandedGoal]=useState(null);
+  const [habitMonthView,setHabitMonthView]=useState(null);
+  const [editingGoalCard,setEditingGoalCard]=useState(null);
+  const [editGoalTitle,setEditGoalTitle]=useState("");
+  const [editGoalWhy,setEditGoalWhy]=useState("");
+  const [editHabitName,setEditHabitName]=useState("");
+  const [editHabitColor,setEditHabitColor]=useState(HABIT_COLORS[0]);
+  const [addingHabitToGoal,setAddingHabitToGoal]=useState(null);
+  const [newLinkedHabitName,setNewLinkedHabitName]=useState("");
+  const [newLinkedHabitColor,setNewLinkedHabitColor]=useState(HABIT_COLORS[0]);
 
   // Goals
   const [goals,setGoals]=useState([]);
@@ -407,6 +428,10 @@ const [selectedDate,setSelectedDate]=useState(todayStr);
 
   // Notifications
   const [notifTime,setNotifTime]=useState("21:00");
+  const [morningTime,setMorningTime]=useState("08:00");
+  const [onelinerMode,setOnelinerMode]=useState("intention");
+  const [dailyOneliner,setDailyOneliner]=useState(null);
+  const [onelinerLoading,setOnelinerLoading]=useState(false);
 
   // Rating
   const [showRating,setShowRating]=useState(false);
@@ -433,6 +458,15 @@ const [editingText,setEditingText]=useState("");
   const [generatingMonthlySummary,setGeneratingMonthlySummary]=useState(false);
   const [referralCode,setReferralCode]=useState("");
   const [referralCount,setReferralCount]=useState(0);
+
+  // Advice
+  const [adviceQuestion,setAdviceQuestion]=useState("");
+  const [adviceAnswer,setAdviceAnswer]=useState(null);
+  const [adviceLoading,setAdviceLoading]=useState(false);
+  const [adviceHistory,setAdviceHistory]=useState([]);
+  const [adviceRecording,setAdviceRecording]=useState(false);
+  const adviceRecognitionRef=useRef(null);
+  const [expandedAdvice,setExpandedAdvice]=useState(null);
 
   // ── Load plan from localStorage ──
   useEffect(()=>{
@@ -465,6 +499,46 @@ const [editingText,setEditingText]=useState("");
     setNotifTime(time);
     await supabase.auth.updateUser({data:{notif_time:time}});
     scheduleNotification(time);
+  };
+
+  const scheduleMorningNotification=async(text,time)=>{
+    if(!window.Capacitor) return;
+    try{
+      const {LocalNotifications}=await import("@capacitor/local-notifications");
+      const {display}=await LocalNotifications.requestPermissions();
+      if(display==="granted"){
+        const [hour,minute]=(time||"08:00").split(":").map(Number);
+        await LocalNotifications.cancel({notifications:[{id:2}]});
+        await LocalNotifications.schedule({notifications:[{
+          id:2,
+          title:"Your intention for today ✦",
+          body:text,
+          schedule:{on:{hour,minute}},
+          sound:null,actionTypeId:"",extra:null
+        }]});
+      }
+    }catch(e){ console.log("Morning notification error",e); }
+  };
+
+  const updateMorningTime=async(time)=>{
+    setMorningTime(time);
+    await supabase.auth.updateUser({data:{morning_time:time}});
+  };
+
+  const generateTomorrowOneliner=async(entryText,mode)=>{
+    const tomorrow=new Date(); tomorrow.setDate(tomorrow.getDate()+1);
+    const tomorrowStr=tomorrow.toISOString().split("T")[0];
+    try{
+      const prompts={
+        intention:`Based on this journal entry, write a single warm intention to carry into tomorrow (under 20 words). Start with "Today," or a similar forward-looking opener. No quotes.\n\nEntry: ${entryText}`,
+        observation:`Based on this journal entry, write a single warm observation about what this person is carrying (under 20 words). Start with "You've been" or "Lately" or similar. No quotes.\n\nEntry: ${entryText}`,
+        question:`Based on this journal entry, write a single open question to sit with tomorrow (under 20 words). Start with "What would it look like" or "What if" or similar. No quotes.\n\nEntry: ${entryText}`,
+      };
+      const text=await callClaudeRaw(prompts[mode]||prompts.intention,60);
+      const trimmed=text.trim();
+      localStorage.setItem(`tl_oneliner_${tomorrowStr}`,JSON.stringify({text:trimmed,mode}));
+      await scheduleMorningNotification(trimmed,morningTime);
+    }catch(e){}
   };
 
   // ── RevenueCat / IAP ──
@@ -570,6 +644,8 @@ const [editingText,setEditingText]=useState("");
         if(meta?.preferred_time) setPreferredTime(meta.preferred_time);
         if(meta?.ob_done) setObDone(true);
         if(meta?.notif_time) setNotifTime(meta.notif_time);
+        if(meta?.morning_time) setMorningTime(meta.morning_time);
+        if(meta?.oneliner_mode) setOnelinerMode(meta.oneliner_mode);
       }
     });
     const {data:{subscription}}=supabase.auth.onAuthStateChange((event,session)=>{
@@ -581,6 +657,8 @@ const [editingText,setEditingText]=useState("");
         if(meta?.preferred_time) setPreferredTime(meta.preferred_time);
         if(meta?.ob_done) setObDone(true);
         if(meta?.notif_time) setNotifTime(meta.notif_time);
+        if(meta?.morning_time) setMorningTime(meta.morning_time);
+        if(meta?.oneliner_mode) setOnelinerMode(meta.oneliner_mode);
       }
     });
     return ()=>subscription.unsubscribe();
@@ -592,12 +670,14 @@ const [editingText,setEditingText]=useState("");
     async function loadAll(){
       setDbLoading(true);
       const uid = session.user.id;
-      const [entriesRes,habitsRes,goalsRes,profileRes]=await Promise.all([
+      const [entriesRes,habitsRes,goalsRes,profileRes,adviceRes]=await Promise.all([
         supabase.from("entries").select("*").eq("user_id",uid).order("date",{ascending:false}),
         supabase.from("habits").select("*").eq("user_id",uid).order("created_at",{ascending:true}),
         supabase.from("goals").select("*").eq("user_id",uid).order("created_at",{ascending:true}),
         supabase.from("profiles").select("*").eq("id",uid).single(),
+        supabase.from("advice").select("*").eq("user_id",uid).order("created_at",{ascending:false}),
       ]);
+      if(adviceRes.data?.length) setAdviceHistory(adviceRes.data);
       if(entriesRes.data?.length) setEntries(entriesRes.data.map(e=>({...e,todos:e.todos||[],stressTags:e.stress_tags||[],joyTags:e.joy_tags||[],stressCategories:e.stress_categories||[],joyCategories:e.joy_categories||[]})));
       if(habitsRes.data?.length) setHabits(habitsRes.data.map(h=>({...h,checked:h.checked||{}})));
      if(goalsRes.data?.length) setGoals(goalsRes.data);
@@ -756,7 +836,15 @@ const {error}=await supabase.auth.resetPasswordForEmail(authEmail,{redirectTo:"h
 
   // ── Habit helpers ──
   const toggleHabit=async(hid,date)=>{ const habit=habits.find(h=>h.id===hid); const newChecked={...habit.checked,[date]:!habit.checked[date]}; setHabits(p=>p.map(h=>h.id===hid?{...h,checked:newChecked}:h)); await supabase.from("habits").update({checked:newChecked}).eq("id",hid); };
-  const addHabit=async()=>{ if(!newHabitName.trim()||!session)return; const h={id:"h"+Date.now(),name:newHabitName.trim(),color:newHabitColor,checked:Object.fromEntries(last28Days().map(d=>[d,false])),user_id:session.user.id}; setHabits(p=>[...p,h]); await supabase.from("habits").insert(h); setNewHabitName(""); setAddingHabit(false); };
+  const addHabit=async()=>{ if(!newHabitName.trim()||!session)return; const h={id:"h"+Date.now(),name:newHabitName.trim(),goal:newHabitGoal.trim()||null,color:newHabitColor,checked:Object.fromEntries(last28Days().map(d=>[d,false])),user_id:session.user.id}; setHabits(p=>[...p,h]); await supabase.from("habits").insert(h); setNewHabitName(""); setNewHabitGoal(""); setAddingHabit(false); };
+  const updateHabit=async(hid,fields)=>{ setHabits(p=>p.map(h=>h.id===hid?{...h,...fields}:h)); await supabase.from("habits").update(fields).eq("id",hid); };
+  const addHabitToGoal=async(goalId)=>{
+    if(!newLinkedHabitName.trim()||!session) return;
+    const h={id:"h"+Date.now(),name:newLinkedHabitName.trim(),goal_id:goalId,color:newLinkedHabitColor,checked:Object.fromEntries(last28Days().map(d=>[d,false])),user_id:session.user.id};
+    setHabits(p=>[...p,h]);
+    await supabase.from("habits").insert(h);
+    setNewLinkedHabitName(""); setAddingHabitToGoal(null);
+  };
   const deleteHabit=async(hid)=>{ setHabits(p=>p.filter(h=>h.id!==hid)); await supabase.from("habits").delete().eq("id",hid); };
   const habitStreak=(h)=>{ let s=0; for(const d of last28Days().reverse()){ if(h.checked[d])s++; else break; } return s; };
 
@@ -778,6 +866,7 @@ const entry={date:selectedDate,mood:todayMood,text,todos:parsed.todos||[],stress
         const newEntries=[{...data,stressTags:data.stress_tags||[],joyTags:data.joy_tags||[],stressCategories:data.stress_categories||[],joyCategories:data.joy_categories||[]},...entries];
         setEntries(newEntries);
         maybeShowRating(newEntries.length);
+        generateTomorrowOneliner(text,onelinerMode);
         // Referral reward: trigger on 3rd entry
         if(newEntries.length===3){
           try{
@@ -790,6 +879,61 @@ const entry={date:selectedDate,mood:todayMood,text,todos:parsed.todos||[],stress
       }
     }catch(e){ setResult({error:true}); }
     setLoading(false);
+  };
+
+  // ── Advice ──
+  const handleAskAdvice=async()=>{
+    if(!adviceQuestion.trim()||!session) return;
+    setAdviceLoading(true); setAdviceAnswer(null);
+    try{
+      const context=entries.slice(0,10).map(e=>`${e.date}: ${e.text}`).join("\n\n");
+      const prompt=`You are a warm, thoughtful companion for ${userName||"this person"}. Based on their recent journal entries, give a personal, insightful response to their question. Be warm and specific to what you know about them. Respond in 2-3 sentences, no lists or headers.\n\nRecent entries:\n${context||"No entries yet."}\n\nQuestion: ${adviceQuestion}`;
+      const answer=await callClaudeRaw(prompt,400,session.user.id,isPro);
+      setAdviceAnswer(answer);
+      const date=new Date().toISOString().split("T")[0];
+      const {data}=await supabase.from("advice").insert({user_id:session.user.id,date,question:adviceQuestion,answer}).select().single();
+      if(data) setAdviceHistory(p=>[data,...p]);
+      setAdviceQuestion("");
+    }catch(e){ setAdviceAnswer("Couldn't get a response — please try again."); }
+    setAdviceLoading(false);
+  };
+
+  const generateDailyOneliner=async(entriesList,mode)=>{
+    const cached=localStorage.getItem(`tl_oneliner_${todayStr}`);
+    if(cached){ try{ const p=JSON.parse(cached); setDailyOneliner(p.text); return; }catch(e){} }
+    const yesterday=new Date(); yesterday.setDate(yesterday.getDate()-1);
+    const yesterdayStr=yesterday.toISOString().split("T")[0];
+    const yesterdayEntry=entriesList.find(e=>e.date===yesterdayStr);
+    if(!yesterdayEntry){ setDailyOneliner(null); return; }
+    setOnelinerLoading(true);
+    try{
+      const prompts={
+        intention:`Based on this journal entry, write a single warm intention to carry into today (under 20 words). Start with "Today," or a similar forward-looking opener. No quotes.\n\nEntry: ${yesterdayEntry.text}`,
+        observation:`Based on this journal entry, write a single warm observation about what this person is carrying (under 20 words). Start with "You've been" or "Lately" or similar. No quotes.\n\nEntry: ${yesterdayEntry.text}`,
+        question:`Based on this journal entry, write a single open question to sit with today (under 20 words). Start with "What would it look like" or "What if" or similar. No quotes.\n\nEntry: ${yesterdayEntry.text}`,
+      };
+      const text=await callClaudeRaw(prompts[mode]||prompts.intention,60);
+      setDailyOneliner(text.trim());
+      localStorage.setItem(`tl_oneliner_${todayStr}`,JSON.stringify({text:text.trim(),mode}));
+    }catch(e){}
+    setOnelinerLoading(false);
+  };
+
+  useEffect(()=>{
+    if(entries.length&&session&&!dailyOneliner&&!onelinerLoading){
+      generateDailyOneliner(entries,onelinerMode);
+    }
+  },[entries,session]);
+
+  const toggleAdviceVoice=()=>{
+    if(adviceRecording){ adviceRecognitionRef.current?.stop(); setAdviceRecording(false); return; }
+    const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+    if(!SR){ alert("Voice input not supported on this device."); return; }
+    const r=new SR();
+    r.continuous=true; r.interimResults=false; r.lang="en-US";
+    r.onresult=(e)=>{ let f=""; for(let i=e.resultIndex;i<e.results.length;i++){ if(e.results[i].isFinal) f+=e.results[i][0].transcript+" "; } if(f) setAdviceQuestion(p=>p+f); };
+    r.onend=()=>setAdviceRecording(false);
+    r.start(); adviceRecognitionRef.current=r; setAdviceRecording(true);
   };
 
   // ── Voice ──
@@ -920,42 +1064,310 @@ const habitDays=isMobile?lastNDays(7):last28Days();
   // MAIN APP
   // ════════════════════════════════════════════════════════════════════════════
 
-  // ── Reusable Habits section ──
-  const HabitsSection = () => (
+  // ── Reusable Habits section (legacy, unused) ──
+  const HabitsSection = () => {
+    const weekDays=lastNDays(7);
+    const getMonthDays=(habitId)=>{
+      const now=new Date(); const year=now.getFullYear(); const month=now.getMonth();
+      const firstDay=new Date(year,month,1).getDay();
+      const daysInMonth=new Date(year,month+1,0).getDate();
+      return {firstDay,daysInMonth,year,month};
+    };
+    return(
     <div className="hg-section">
       <div className="hg-section-header">
         <div>
-          <div className="hg-section-title">Habits</div>
-          <div className="hg-section-sub">28-day view — tap any square to log it</div>
+          <div className="hg-section-title">Habits & Goals</div>
+          <div className="hg-section-sub">Tap to expand and track</div>
         </div>
-        <button className="btn btn-ghost" style={{padding:"6px 14px",fontSize:12}} onClick={()=>setAddingHabit(v=>!v)}>{addingHabit?"Cancel":"+ Add habit"}</button>
+        <button className="btn btn-ghost" style={{padding:"6px 14px",fontSize:12}} onClick={()=>{setAddingHabit(v=>!v);setExpandedHabit(null);}}>{addingHabit?"Cancel":"+ Add habit"}</button>
       </div>
-      <div className="habit-grid-wrap">
-        <div className="habit-day-labels"><div/>{habitDays.map((d,i)=><div key={d} className="habit-day-label">{i===0||new Date(d+"T12:00:00").getDate()===1?new Date(d+"T12:00:00").toLocaleDateString("en-US",{month:"short",day:"numeric"}).replace(" ",""):new Date(d+"T12:00:00").getDate()%7===1?new Date(d+"T12:00:00").getDate():""}</div>)}</div>
-        {habits.map(h=>{ const streak=habitStreak(h); return <div key={h.id} className="habit-row-wrap"><div style={{flex:1}}><div className="habit-row"><div className="habit-name-cell" title={h.name}>{h.name}</div>{habitDays.map(d=><div key={d} className={`habit-dot ${h.checked[d]?"checked":""}`} style={h.checked[d]?{background:h.color}:{}} onClick={()=>toggleHabit(h.id,d)} title={d}/>)}</div>{streak>1&&<div style={{paddingLeft:118,marginTop:-2,marginBottom:4}}><span className="habit-streak-label">🔥 {streak}-day streak</span></div>}</div><button className="habit-del" onClick={()=>deleteHabit(h.id)}>×</button></div>; })}
-        {habits.length===0&&<div className="empty-state" style={{padding:"20px 0"}}>No habits yet — add one below.</div>}
-      </div>
-      {addingHabit&&<><div className="add-habit-row"><input autoFocus className="add-habit-input" placeholder="Habit name (e.g. Morning walk, Read 20 min)" value={newHabitName} onChange={e=>setNewHabitName(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")addHabit();if(e.key==="Escape")setAddingHabit(false);}}/><button className="btn btn-primary" onClick={addHabit} disabled={!newHabitName.trim()}>Add</button></div><div className="habit-color-pick"><span style={{fontSize:11,color:"var(--text-dim)"}}>Colour:</span>{HABIT_COLORS.map(c=><div key={c} className={`habit-color-swatch ${newHabitColor===c?"selected":""}`} style={{background:c}} onClick={()=>setNewHabitColor(c)}/>)}</div></>}
+
+      {habits.length===0&&!addingHabit&&<div className="empty-state" style={{padding:"20px 0"}}>No habits yet — add one above.</div>}
+
+      {habits.map(h=>{
+        const isExpanded=expandedHabit===h.id;
+        const isEditing=editingHabitId===h.id;
+        const showMonth=habitMonthView===h.id;
+        const streak=habitStreak(h);
+        const {firstDay,daysInMonth,year,month}=getMonthDays(h.id);
+        return(
+          <div key={h.id} style={{background:"var(--surface)",border:"1px solid var(--border)",borderRadius:14,padding:"14px 16px",marginBottom:10,animation:"fadeUp 0.2s ease"}}>
+            {/* ── Collapsed header ── */}
+            <div style={{display:"flex",alignItems:"center",gap:10,cursor:"pointer"}} onClick={()=>{if(!isEditing){setExpandedHabit(isExpanded?null:h.id);setHabitMonthView(null);}}}>
+              <div style={{width:10,height:10,borderRadius:"50%",background:h.color,flexShrink:0}}/>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontSize:14,color:"var(--cream)",fontWeight:400}}>{h.name}</div>
+                {h.goal&&<div style={{fontSize:12,color:"var(--text-muted)",fontStyle:"italic",marginTop:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{h.goal}</div>}
+                {!h.goal&&isExpanded&&<div style={{fontSize:12,color:"var(--text-dim)",fontStyle:"italic",marginTop:1}}>No goal yet</div>}
+              </div>
+              <div style={{display:"flex",gap:3,alignItems:"center",flexShrink:0}}>
+                {weekDays.map(d=><div key={d} style={{width:8,height:8,borderRadius:2,background:h.checked?.[d]?h.color:"var(--surface2)",border:"1px solid var(--border)",transition:"background 0.12s"}}/>)}
+                <span style={{fontSize:11,color:"var(--text-dim)",marginLeft:4}}>{isExpanded?"▲":"▼"}</span>
+              </div>
+            </div>
+
+            {isExpanded&&!isEditing&&<>
+              {streak>1&&<div style={{marginTop:8}}><span className="habit-streak-label">🔥 {streak}-day streak</span></div>}
+
+              {/* 7-day tracker */}
+              <div style={{marginTop:14}}>
+                <div style={{fontSize:10,color:"var(--text-dim)",letterSpacing:"0.5px",marginBottom:8}}>THIS WEEK</div>
+                <div style={{display:"flex",gap:6}}>
+                  {weekDays.map(d=>{
+                    const checked=!!h.checked?.[d];
+                    const label=new Date(d+"T12:00:00").toLocaleDateString("en-US",{weekday:"short"});
+                    return <div key={d} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:4,cursor:"pointer"}} onClick={()=>toggleHabit(h.id,d)}>
+                      <div style={{fontSize:9,color:"var(--text-dim)"}}>{label}</div>
+                      <div style={{width:"100%",aspectRatio:"1",borderRadius:6,background:checked?h.color:"var(--surface2)",border:`1px solid ${checked?h.color:"var(--border)"}`,transition:"all 0.12s"}}/>
+                    </div>;
+                  })}
+                </div>
+                <button onClick={()=>setHabitMonthView(showMonth?null:h.id)} style={{marginTop:10,background:"none",border:"none",color:"var(--text-dim)",fontFamily:"DM Sans,sans-serif",fontSize:12,cursor:"pointer",padding:0}}>
+                  {showMonth?"Hide month ▲":"See full month ▼"}
+                </button>
+              </div>
+
+              {/* Month calendar */}
+              {showMonth&&<div style={{marginTop:12}}>
+                <div style={{fontSize:10,color:"var(--text-dim)",letterSpacing:"0.5px",marginBottom:8}}>{new Date(year,month).toLocaleDateString("en-US",{month:"long",year:"numeric"}).toUpperCase()}</div>
+                <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:4,marginBottom:4}}>
+                  {["S","M","T","W","T","F","S"].map((d,i)=><div key={i} style={{fontSize:9,color:"var(--text-dim)",textAlign:"center"}}>{d}</div>)}
+                </div>
+                <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:4}}>
+                  {Array.from({length:firstDay}).map((_,i)=><div key={"e"+i}/>)}
+                  {Array.from({length:daysInMonth}).map((_,i)=>{
+                    const day=i+1;
+                    const dateStr=`${year}-${String(month+1).padStart(2,"0")}-${String(day).padStart(2,"0")}`;
+                    const checked=!!h.checked?.[dateStr];
+                    const isToday=dateStr===todayStr;
+                    return <div key={day} onClick={()=>toggleHabit(h.id,dateStr)} style={{aspectRatio:"1",borderRadius:6,background:checked?h.color:"var(--surface2)",border:`1px solid ${isToday?"var(--amber)":checked?h.color:"var(--border)"}`,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",transition:"all 0.12s"}}>
+                      <span style={{fontSize:9,color:checked?"rgba(255,255,255,0.8)":"var(--text-dim)"}}>{day}</span>
+                    </div>;
+                  })}
+                </div>
+              </div>}
+
+              {/* Goal section */}
+              <div style={{marginTop:14,paddingTop:12,borderTop:"1px solid var(--border)"}}>
+                <div style={{fontSize:10,color:"var(--text-dim)",letterSpacing:"0.5px",marginBottom:6}}>GOAL</div>
+                {h.goal
+                  ? <div style={{fontSize:13,color:"var(--text-muted)",fontStyle:"italic",lineHeight:1.5}}>{h.goal}</div>
+                  : <div style={{fontSize:13,color:"var(--text-dim)",fontStyle:"italic"}}>No goal set — add one when editing.</div>
+                }
+              </div>
+
+              {/* Actions */}
+              <div style={{display:"flex",gap:8,marginTop:14}}>
+                <button onClick={()=>{setEditingHabitId(h.id);setEditingHabitName(h.name);setEditingHabitGoal(h.goal||"");}} style={{padding:"6px 14px",borderRadius:8,background:"transparent",border:"1px solid var(--border)",color:"var(--text-muted)",fontFamily:"DM Sans,sans-serif",fontSize:12,cursor:"pointer"}}>Edit</button>
+                <button onClick={()=>deleteHabit(h.id)} style={{padding:"6px 14px",borderRadius:8,background:"transparent",border:"1px solid var(--border)",color:"var(--rose)",fontFamily:"DM Sans,sans-serif",fontSize:12,cursor:"pointer"}}>Delete</button>
+              </div>
+            </>}
+
+            {/* ── Edit mode ── */}
+            {isEditing&&<div style={{marginTop:12}} onClick={e=>e.stopPropagation()}>
+              <div style={{marginBottom:8}}>
+                <div style={{fontSize:10,color:"var(--text-dim)",letterSpacing:"0.5px",marginBottom:4}}>HABIT NAME</div>
+                <input value={editingHabitName} onChange={e=>setEditingHabitName(e.target.value)} style={{width:"100%",background:"var(--surface2)",border:"1px solid var(--amber)",borderRadius:8,padding:"8px 12px",color:"var(--text)",fontFamily:"DM Sans,sans-serif",fontSize:13,outline:"none"}}/>
+              </div>
+              <div style={{marginBottom:12}}>
+                <div style={{fontSize:10,color:"var(--text-dim)",letterSpacing:"0.5px",marginBottom:4}}>GOAL</div>
+                <input value={editingHabitGoal} onChange={e=>setEditingHabitGoal(e.target.value)} placeholder="What is this habit working towards?" style={{width:"100%",background:"var(--surface2)",border:"1px solid var(--border)",borderRadius:8,padding:"8px 12px",color:"var(--text)",fontFamily:"DM Sans,sans-serif",fontSize:13,outline:"none"}}/>
+              </div>
+              <div style={{display:"flex",gap:8}}>
+                <button onClick={async()=>{ await updateHabit(h.id,{name:editingHabitName.trim()||h.name,goal:editingHabitGoal.trim()||null}); setEditingHabitId(null); }} style={{padding:"7px 16px",borderRadius:8,background:"var(--amber)",border:"none",color:"#0e0c0a",fontFamily:"DM Sans,sans-serif",fontSize:13,cursor:"pointer",fontWeight:500}}>Save</button>
+                <button onClick={()=>setEditingHabitId(null)} style={{padding:"7px 16px",borderRadius:8,background:"transparent",border:"1px solid var(--border)",color:"var(--text-muted)",fontFamily:"DM Sans,sans-serif",fontSize:13,cursor:"pointer"}}>Cancel</button>
+              </div>
+            </div>}
+          </div>
+        );
+      })}
+
+      {addingHabit&&<div style={{background:"var(--surface)",border:"1px solid var(--amber)",borderRadius:14,padding:"16px",marginBottom:10,animation:"fadeUp 0.2s ease"}}>
+        <div style={{marginBottom:8}}>
+          <div style={{fontSize:10,color:"var(--text-dim)",letterSpacing:"0.5px",marginBottom:4}}>HABIT NAME</div>
+          <input autoFocus className="add-habit-input" placeholder="e.g. Morning walk, Read 20 min" value={newHabitName} onChange={e=>setNewHabitName(e.target.value)} onKeyDown={e=>{if(e.key==="Escape")setAddingHabit(false);}} style={{width:"100%"}}/>
+        </div>
+        <div style={{marginBottom:12}}>
+          <div style={{fontSize:10,color:"var(--text-dim)",letterSpacing:"0.5px",marginBottom:4}}>GOAL</div>
+          <input className="add-habit-input" placeholder="What is this habit working towards?" value={newHabitGoal} onChange={e=>setNewHabitGoal(e.target.value)} onKeyDown={e=>{if(e.key==="Escape")setAddingHabit(false);}} style={{width:"100%"}}/>
+        </div>
+        <div style={{marginBottom:12}}>
+          <div style={{fontSize:10,color:"var(--text-dim)",letterSpacing:"0.5px",marginBottom:6}}>COLOUR</div>
+          <div className="habit-color-pick" style={{marginTop:0}}>{HABIT_COLORS.map(c=><div key={c} className={`habit-color-swatch ${newHabitColor===c?"selected":""}`} style={{background:c}} onClick={()=>setNewHabitColor(c)}/>)}</div>
+        </div>
+        <div style={{display:"flex",gap:8}}>
+          <button className="btn btn-primary" onClick={addHabit} disabled={!newHabitName.trim()}>Add habit</button>
+          <button className="btn btn-ghost" onClick={()=>setAddingHabit(false)}>Cancel</button>
+        </div>
+      </div>}
     </div>
   );
+  };
 
-  // ── Reusable Goals section ──
-  const GoalsSection = () => (
+  // ── Goals section (with inline habits) ──
+  const GoalsSection = () => {
+    const getMonthDays=()=>{ const now=new Date(); const year=now.getFullYear(); const month=now.getMonth(); const firstDay=new Date(year,month,1).getDay(); const daysInMonth=new Date(year,month+1,0).getDate(); return {firstDay,daysInMonth,year,month}; };
+    const weekDays=lastNDays(7);
+    const allGoals=[...goals,...suggestedGoals.map(sg=>({...sg,_suggested:true}))];
+    return(
     <div className="hg-section">
       <div className="hg-section-header">
         <div>
-          <div className="hg-section-title">Goals</div>
-          <div className="hg-section-sub">Directions, not tasks</div>
+          <div className="hg-section-title">Habits & Goals</div>
+          <div className="hg-section-sub">Goals with daily habits attached</div>
         </div>
         <button className="btn btn-ghost" style={{padding:"6px 14px",fontSize:12}} onClick={()=>setAddingGoal(v=>!v)}>{addingGoal?"Cancel":"+ Add goal"}</button>
       </div>
-      {addingGoal&&<div className="add-goal-row"><input autoFocus className="add-goal-input" placeholder="What do you want to work towards?" value={newGoalText} onChange={e=>setNewGoalText(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")addManualGoal();if(e.key==="Escape")setAddingGoal(false);}}/><button className="btn btn-primary" onClick={addManualGoal} disabled={!newGoalText.trim()}>Add</button></div>}
-      {goals.map(g=><div key={g.id} className="goal-card"><div className="goal-header"><span className="goal-icon">{g.icon}</span><div className="goal-body"><div className="goal-title">{g.title}</div>{g.why&&<div className="goal-why">{g.why}</div>}</div></div><div className="goal-footer"><span className="goal-badge mine-badge">Your goal</span><div className="goal-actions"><button className="goal-btn delete" onClick={()=>deleteGoal(g.id)}>Remove</button></div></div></div>)}
-      {goals.length===0&&suggestedGoals.length===0&&<div className="empty-state" style={{padding:"20px 0"}}>No goals yet. Add one or let the app suggest some.</div>}
-      {suggestedGoals.map(sg=><div key={sg.id} className="goal-card suggested"><div className="goal-header"><span className="goal-icon">{sg.icon}</span><div className="goal-body"><div className="goal-title">{sg.title}</div>{sg.why&&<div className="goal-why">{sg.why}</div>}</div></div><div className="goal-footer"><span className="goal-badge suggested-badge">✦ Suggested for you</span><div className="goal-actions"><button className="goal-btn" onClick={()=>dismissSuggested(sg)}>Dismiss</button><button className="goal-btn accept" onClick={()=>acceptSuggested(sg)}>Add this →</button></div></div></div>)}
+
+      {addingGoal&&<div style={{background:"var(--surface)",border:"1px solid var(--amber)",borderRadius:14,padding:"16px",marginBottom:12,animation:"fadeUp 0.2s ease"}}>
+        <div style={{marginBottom:8}}>
+          <div style={{fontSize:10,color:"var(--text-dim)",letterSpacing:"0.5px",marginBottom:4}}>GOAL</div>
+          <input autoFocus className="add-goal-input" placeholder="What do you want to work towards?" value={newGoalText} onChange={e=>setNewGoalText(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")addManualGoal();if(e.key==="Escape")setAddingGoal(false);}}/>
+        </div>
+        <div style={{display:"flex",gap:8,marginTop:8}}>
+          <button className="btn btn-primary" onClick={addManualGoal} disabled={!newGoalText.trim()}>Add goal</button>
+          <button className="btn btn-ghost" onClick={()=>setAddingGoal(false)}>Cancel</button>
+        </div>
+      </div>}
+
+      {allGoals.length===0&&<div className="empty-state" style={{padding:"20px 0"}}>No goals yet — add one or let the app suggest some.</div>}
+
+      {allGoals.map(g=>{
+        if(g._suggested) return(
+          <div key={g.id} className="goal-card suggested" style={{marginBottom:10}}>
+            <div className="goal-header"><span className="goal-icon">{g.icon}</span><div className="goal-body"><div className="goal-title">{g.title}</div>{g.why&&<div className="goal-why">{g.why}</div>}</div></div>
+            <div className="goal-footer"><span className="goal-badge suggested-badge">✦ Suggested for you</span><div className="goal-actions"><button className="goal-btn" onClick={()=>dismissSuggested(g)}>Dismiss</button><button className="goal-btn accept" onClick={()=>acceptSuggested(g)}>Add this →</button></div></div>
+          </div>
+        );
+
+        const habit=habits.find(h=>h.goal_id===g.id);
+        const isExpanded=expandedGoal===g.id;
+        const isEditing=editingGoalCard===g.id;
+        const showMonth=habitMonthView===g.id;
+        const {firstDay,daysInMonth,year,month}=getMonthDays();
+        const streak=habit?habitStreak(habit):0;
+
+        return(
+          <div key={g.id} style={{background:"var(--surface)",border:"1px solid var(--border)",borderRadius:14,padding:"14px 16px",marginBottom:10,animation:"fadeUp 0.2s ease"}}>
+            {/* Collapsed header */}
+            <div style={{display:"flex",alignItems:"center",gap:10,cursor:"pointer"}} onClick={()=>{if(!isEditing){setExpandedGoal(isExpanded?null:g.id);setHabitMonthView(null);}}}>
+              <span style={{fontSize:18,flexShrink:0}}>{g.icon||"✦"}</span>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontSize:14,color:"var(--cream)",fontWeight:400}}>{g.title}</div>
+                {habit
+                  ? <div style={{fontSize:12,color:"var(--text-muted)",marginTop:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>📌 {habit.name}</div>
+                  : <div style={{fontSize:12,color:"var(--text-dim)",fontStyle:"italic",marginTop:1}}>No habit yet</div>
+                }
+              </div>
+              <div style={{display:"flex",gap:3,alignItems:"center",flexShrink:0}}>
+                {habit&&weekDays.map(d=><div key={d} style={{width:8,height:8,borderRadius:2,background:habit.checked?.[d]?habit.color:"var(--surface2)",border:"1px solid var(--border)"}}/>)}
+                <span style={{fontSize:11,color:"var(--text-dim)",marginLeft:4}}>{isExpanded?"▲":"▼"}</span>
+              </div>
+            </div>
+
+            {isExpanded&&!isEditing&&<>
+              {g.why&&<div style={{fontSize:13,color:"var(--text-muted)",fontStyle:"italic",marginTop:10,lineHeight:1.5}}>{g.why}</div>}
+
+              {/* Habit tracker */}
+              {habit&&<>
+                {streak>1&&<div style={{marginTop:8}}><span className="habit-streak-label">🔥 {streak}-day streak</span></div>}
+                <div style={{marginTop:14}}>
+                  <div style={{fontSize:10,color:"var(--text-dim)",letterSpacing:"0.5px",marginBottom:8}}>THIS WEEK · {habit.name}</div>
+                  <div style={{display:"flex",gap:6}}>
+                    {weekDays.map(d=>{
+                      const checked=!!habit.checked?.[d];
+                      const label=new Date(d+"T12:00:00").toLocaleDateString("en-US",{weekday:"short"});
+                      return <div key={d} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:4,cursor:"pointer"}} onClick={()=>toggleHabit(habit.id,d)}>
+                        <div style={{fontSize:9,color:"var(--text-dim)"}}>{label}</div>
+                        <div style={{width:"100%",aspectRatio:"1",borderRadius:6,background:checked?habit.color:"var(--surface2)",border:`1px solid ${checked?habit.color:"var(--border)"}`,transition:"all 0.12s"}}/>
+                      </div>;
+                    })}
+                  </div>
+                  <button onClick={()=>setHabitMonthView(showMonth?null:g.id)} style={{marginTop:10,background:"none",border:"none",color:"var(--text-dim)",fontFamily:"DM Sans,sans-serif",fontSize:12,cursor:"pointer",padding:0}}>
+                    {showMonth?"Hide month ▲":"See full month ▼"}
+                  </button>
+                </div>
+                {showMonth&&<div style={{marginTop:12}}>
+                  <div style={{fontSize:10,color:"var(--text-dim)",letterSpacing:"0.5px",marginBottom:8}}>{new Date(year,month).toLocaleDateString("en-US",{month:"long",year:"numeric"}).toUpperCase()}</div>
+                  <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:4,marginBottom:4}}>
+                    {["S","M","T","W","T","F","S"].map((d,i)=><div key={i} style={{fontSize:9,color:"var(--text-dim)",textAlign:"center"}}>{d}</div>)}
+                  </div>
+                  <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:4}}>
+                    {Array.from({length:firstDay}).map((_,i)=><div key={"e"+i}/>)}
+                    {Array.from({length:daysInMonth}).map((_,i)=>{
+                      const day=i+1;
+                      const dateStr=`${year}-${String(month+1).padStart(2,"0")}-${String(day).padStart(2,"0")}`;
+                      const checked=!!habit.checked?.[dateStr];
+                      const isToday=dateStr===todayStr;
+                      return <div key={day} onClick={()=>toggleHabit(habit.id,dateStr)} style={{aspectRatio:"1",borderRadius:6,background:checked?habit.color:"var(--surface2)",border:`1px solid ${isToday?"var(--amber)":checked?habit.color:"var(--border)"}`,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",transition:"all 0.12s"}}>
+                        <span style={{fontSize:9,color:checked?"rgba(255,255,255,0.8)":"var(--text-dim)"}}>{day}</span>
+                      </div>;
+                    })}
+                  </div>
+                </div>}
+              </>}
+
+              {/* No habit yet */}
+              {!habit&&addingHabitToGoal!==g.id&&<button onClick={()=>{setAddingHabitToGoal(g.id);setNewLinkedHabitName("");setNewLinkedHabitColor(HABIT_COLORS[0]);}} style={{marginTop:12,background:"var(--surface2)",border:"1px dashed rgba(200,136,42,0.4)",borderRadius:10,padding:"10px 16px",color:"var(--amber-soft)",fontFamily:"DM Sans,sans-serif",fontSize:13,cursor:"pointer",width:"100%",textAlign:"left"}}>+ Add a daily habit to this goal</button>}
+
+              {/* Add habit form */}
+              {addingHabitToGoal===g.id&&<div style={{marginTop:12,padding:"12px",background:"var(--surface2)",borderRadius:10,border:"1px solid var(--border)"}}>
+                <div style={{fontSize:10,color:"var(--text-dim)",letterSpacing:"0.5px",marginBottom:6}}>DAILY HABIT</div>
+                <input autoFocus className="add-habit-input" placeholder="e.g. Morning walk, Read 20 min" value={newLinkedHabitName} onChange={e=>setNewLinkedHabitName(e.target.value)} style={{width:"100%",marginBottom:8}}/>
+                <div className="habit-color-pick" style={{marginBottom:10}}>{HABIT_COLORS.map(c=><div key={c} className={`habit-color-swatch ${newLinkedHabitColor===c?"selected":""}`} style={{background:c}} onClick={()=>setNewLinkedHabitColor(c)}/>)}</div>
+                <div style={{display:"flex",gap:8}}>
+                  <button className="btn btn-primary" onClick={()=>addHabitToGoal(g.id)} disabled={!newLinkedHabitName.trim()}>Add habit</button>
+                  <button className="btn btn-ghost" onClick={()=>setAddingHabitToGoal(null)}>Cancel</button>
+                </div>
+              </div>}
+
+              {/* Actions */}
+              <div style={{display:"flex",gap:8,marginTop:14,paddingTop:12,borderTop:"1px solid var(--border)"}}>
+                <button onClick={()=>{setEditingGoalCard(g.id);setEditGoalTitle(g.title);setEditGoalWhy(g.why||"");setEditHabitName(habit?.name||"");setEditHabitColor(habit?.color||HABIT_COLORS[0]);}} style={{padding:"6px 14px",borderRadius:8,background:"transparent",border:"1px solid var(--border)",color:"var(--text-muted)",fontFamily:"DM Sans,sans-serif",fontSize:12,cursor:"pointer"}}>Edit</button>
+                <button onClick={()=>deleteGoal(g.id)} style={{padding:"6px 14px",borderRadius:8,background:"transparent",border:"1px solid var(--border)",color:"var(--rose)",fontFamily:"DM Sans,sans-serif",fontSize:12,cursor:"pointer"}}>Delete goal</button>
+                {habit&&<button onClick={()=>deleteHabit(habit.id)} style={{padding:"6px 14px",borderRadius:8,background:"transparent",border:"1px solid var(--border)",color:"var(--text-dim)",fontFamily:"DM Sans,sans-serif",fontSize:12,cursor:"pointer"}}>Remove habit</button>}
+              </div>
+            </>}
+
+            {/* Edit mode */}
+            {isEditing&&<div style={{marginTop:12}} onClick={e=>e.stopPropagation()}>
+              <div style={{marginBottom:8}}>
+                <div style={{fontSize:10,color:"var(--text-dim)",letterSpacing:"0.5px",marginBottom:4}}>GOAL</div>
+                <input value={editGoalTitle} onChange={e=>setEditGoalTitle(e.target.value)} style={{width:"100%",background:"var(--surface2)",border:"1px solid var(--amber)",borderRadius:8,padding:"8px 12px",color:"var(--text)",fontFamily:"DM Sans,sans-serif",fontSize:13,outline:"none"}}/>
+              </div>
+              <div style={{marginBottom:habit?12:0}}>
+                <div style={{fontSize:10,color:"var(--text-dim)",letterSpacing:"0.5px",marginBottom:4}}>WHY</div>
+                <input value={editGoalWhy} onChange={e=>setEditGoalWhy(e.target.value)} placeholder="Optional — what's the deeper reason?" style={{width:"100%",background:"var(--surface2)",border:"1px solid var(--border)",borderRadius:8,padding:"8px 12px",color:"var(--text)",fontFamily:"DM Sans,sans-serif",fontSize:13,outline:"none"}}/>
+              </div>
+              {habit&&<>
+                <div style={{marginTop:12,marginBottom:8}}>
+                  <div style={{fontSize:10,color:"var(--text-dim)",letterSpacing:"0.5px",marginBottom:4}}>HABIT NAME</div>
+                  <input value={editHabitName} onChange={e=>setEditHabitName(e.target.value)} style={{width:"100%",background:"var(--surface2)",border:"1px solid var(--border)",borderRadius:8,padding:"8px 12px",color:"var(--text)",fontFamily:"DM Sans,sans-serif",fontSize:13,outline:"none"}}/>
+                </div>
+                <div style={{marginBottom:12}}>
+                  <div style={{fontSize:10,color:"var(--text-dim)",letterSpacing:"0.5px",marginBottom:6}}>HABIT COLOUR</div>
+                  <div className="habit-color-pick" style={{marginTop:0}}>{HABIT_COLORS.map(c=><div key={c} className={`habit-color-swatch ${editHabitColor===c?"selected":""}`} style={{background:c}} onClick={()=>setEditHabitColor(c)}/>)}</div>
+                </div>
+              </>}
+              <div style={{display:"flex",gap:8,marginTop:4}}>
+                <button onClick={async()=>{
+                  await supabase.from("goals").update({title:editGoalTitle.trim()||g.title,why:editGoalWhy.trim()||null}).eq("id",g.id);
+                  setGoals(p=>p.map(x=>x.id===g.id?{...x,title:editGoalTitle.trim()||g.title,why:editGoalWhy.trim()||null}:x));
+                  if(habit&&editHabitName.trim()) await updateHabit(habit.id,{name:editHabitName.trim(),color:editHabitColor});
+                  setEditingGoalCard(null);
+                }} style={{padding:"7px 16px",borderRadius:8,background:"var(--amber)",border:"none",color:"#0e0c0a",fontFamily:"DM Sans,sans-serif",fontSize:13,cursor:"pointer",fontWeight:500}}>Save</button>
+                <button onClick={()=>setEditingGoalCard(null)} style={{padding:"7px 16px",borderRadius:8,background:"transparent",border:"1px solid var(--border)",color:"var(--text-muted)",fontFamily:"DM Sans,sans-serif",fontSize:13,cursor:"pointer"}}>Cancel</button>
+              </div>
+            </div>}
+          </div>
+        );
+      })}
+
       <button className="goals-suggest-btn" onClick={handleSuggestGoals} disabled={suggestingGoals||entries.length===0}>{suggestingGoals?<><div className="loading-dots" style={{padding:0}}><span/><span/><span/></div> Reading your entries...</>:<><span>✦</span> Suggest goals based on my entries</>}</button>
     </div>
   );
+  };
 
   return(<><style>{STYLES}</style><div className="grain"/><div className="glow"/>
   <div className="app">
@@ -987,9 +1399,20 @@ const habitDays=isMobile?lastNDays(7):last28Days();
             <button onClick={()=>exportData("json")} style={{background:"none",border:"none",color:"var(--text-muted)",fontFamily:"DM Sans,sans-serif",fontSize:13,cursor:"pointer",textAlign:"left",padding:0}}>Export full backup as JSON</button>
             <div style={{height:"1px",background:"var(--border)",margin:"4px 0"}}/>
             <div style={{fontSize:11,color:"var(--text-dim)",letterSpacing:"0.5px",marginBottom:4}}>NOTIFICATIONS</div>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8,marginBottom:8}}>
+              <span style={{fontSize:13,color:"var(--text-muted)"}}>Morning intention</span>
+              <input type="time" value={morningTime} onChange={e=>updateMorningTime(e.target.value)} style={{background:"var(--surface)",border:"1px solid var(--border)",borderRadius:8,padding:"5px 8px",color:"var(--text)",fontFamily:"DM Sans,sans-serif",fontSize:13,outline:"none",cursor:"pointer",colorScheme:"dark"}}/>
+            </div>
             <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8}}>
-              <span style={{fontSize:13,color:"var(--text-muted)"}}>Daily reminder</span>
+              <span style={{fontSize:13,color:"var(--text-muted)"}}>Evening reminder</span>
               <input type="time" value={notifTime} onChange={e=>updateNotifTime(e.target.value)} style={{background:"var(--surface)",border:"1px solid var(--border)",borderRadius:8,padding:"5px 8px",color:"var(--text)",fontFamily:"DM Sans,sans-serif",fontSize:13,outline:"none",cursor:"pointer",colorScheme:"dark"}}/>
+            </div>
+            <div style={{height:"1px",background:"var(--border)",margin:"4px 0"}}/>
+            <div style={{fontSize:11,color:"var(--text-dim)",letterSpacing:"0.5px",marginBottom:8}}>DAILY HOME CARD</div>
+            <div style={{display:"flex",gap:6}}>
+              {["intention","observation","question"].map(m=>(
+                <button key={m} onClick={async()=>{ setOnelinerMode(m); await supabase.auth.updateUser({data:{oneliner_mode:m}}); localStorage.removeItem(`tl_oneliner_${todayStr}`); setDailyOneliner(null); generateDailyOneliner(entries,m); }} style={{flex:1,padding:"6px 4px",borderRadius:8,border:"1px solid var(--border)",background:onelinerMode===m?"var(--amber)":"transparent",color:onelinerMode===m?"#0e0c0a":"var(--text-muted)",fontFamily:"DM Sans,sans-serif",fontSize:11,cursor:"pointer",transition:"all 0.15s",textTransform:"capitalize"}}>{m}</button>
+              ))}
             </div>
             <div style={{height:"1px",background:"var(--border)",margin:"4px 0"}}/>
             <div style={{fontSize:11,color:"var(--text-dim)",letterSpacing:"0.5px",marginBottom:4}}>REFER A FRIEND</div>
@@ -1016,11 +1439,11 @@ const habitDays=isMobile?lastNDays(7):last28Days();
         </div>
         <div className="nav-tabs">
           {[
-            {id:"today",  label:"Today"},
-            {id:"plan",   label:"Plan"},
-            {id:"habits", label:"Habits & Goals"},
+            {id:"home",    label:"Home"},
+            {id:"journal", label:"Journal"},
+            {id:"plan",    label:"Plan"},
+            {id:"habits",  label:"Habits & Goals"},
             {id:"patterns",label:"Patterns"},
-            {id:"history",label:"History"},
           ].map(t=>(
             <button key={t.id} className={`nav-tab ${tab===t.id?"active":""}`} onClick={()=>{haptic("light");setTab(t.id);}}>
               {t.label}
@@ -1030,8 +1453,66 @@ const habitDays=isMobile?lastNDays(7):last28Days();
       </div>
     </nav>
 
-    {/* ── TODAY ── */}
-    {tab==="today"&&<>
+    {/* ── HOME ── */}
+    {tab==="home"&&<>
+      <div style={{display:"flex",alignItems:"flex-end",justifyContent:"space-between",marginBottom:28}}>
+        <div>
+          <div className="date-label">{today}</div>
+          <div className="date-main">{userName?`Hey, ${userName.split(" ")[0]}`:"Welcome back"}</div>
+        </div>
+        <div style={{display:"flex",gap:8,alignItems:"center",marginBottom:4}}>
+          {streak>0&&<div style={{display:"flex",flexDirection:"column",alignItems:"center",background:"var(--surface)",border:"1px solid var(--border)",borderRadius:10,padding:"6px 10px"}}>
+            <span style={{fontSize:13}}>🔥</span>
+            <span style={{fontFamily:"Playfair Display,serif",fontSize:14,color:"var(--cream)",lineHeight:1.2}}>{streak}</span>
+            <span style={{fontSize:9,color:"var(--text-dim)",letterSpacing:"0.3px"}}>streak</span>
+          </div>}
+          <div style={{display:"flex",flexDirection:"column",alignItems:"center",background:"var(--surface)",border:"1px solid var(--border)",borderRadius:10,padding:"6px 10px"}}>
+            <span style={{fontSize:13}}>📓</span>
+            <span style={{fontFamily:"Playfair Display,serif",fontSize:14,color:"var(--cream)",lineHeight:1.2}}>{entries.length}</span>
+            <span style={{fontSize:9,color:"var(--text-dim)",letterSpacing:"0.3px"}}>entries</span>
+          </div>
+        </div>
+      </div>
+      <div style={{background:"linear-gradient(135deg,var(--surface),var(--amber-dim))",border:"1px solid rgba(200,136,42,0.25)",borderRadius:14,padding:"20px 20px 16px",marginBottom:16}}>
+        <div style={{fontSize:10,color:"var(--amber-soft)",letterSpacing:"1px",textTransform:"uppercase",marginBottom:10}}>{onelinerMode} for today</div>
+        {onelinerLoading&&<div className="loading-dots" style={{padding:0}}><span/><span/><span/></div>}
+        {!onelinerLoading&&dailyOneliner&&<div style={{fontFamily:"Playfair Display,serif",fontSize:17,fontStyle:"italic",color:"var(--cream)",lineHeight:1.6}}>{dailyOneliner}</div>}
+        {!onelinerLoading&&!dailyOneliner&&<div style={{fontSize:13,color:"var(--amber-soft)",fontStyle:"italic",opacity:0.7}}>Journal today for an intention tomorrow...</div>}
+      </div>
+      <div className="entry-card">
+        <div className="entry-prompt">Ask anything — your journal entries give the answer context.</div>
+        <textarea className="entry-textarea" placeholder="What should I focus on this week? How have I been doing with stress lately?" value={adviceQuestion} onChange={e=>setAdviceQuestion(e.target.value)} rows={3}/>
+        <div className="entry-footer">
+          <span className="char-count">{adviceQuestion.length} characters</span>
+          <div className="entry-actions">
+            <button className={`btn btn-ghost ${adviceRecording?"recording":""}`} onClick={toggleAdviceVoice}>{adviceRecording&&<span className="rec-dot"/>}{adviceRecording?"Stop":"🎙 Speak"}</button>
+            <button className="btn btn-primary" onClick={handleAskAdvice} disabled={!adviceQuestion.trim()||adviceLoading}>{adviceLoading?"Thinking...":"Ask →"}</button>
+          </div>
+        </div>
+      </div>
+      {adviceLoading&&<div className="entry-card"><div className="entry-prompt">Thinking through your entries...</div><div className="loading-dots"><span/><span/><span/></div></div>}
+      {adviceAnswer&&<div className="analysis-section"><div className="section-label">Response</div><div className="insight-box">{adviceAnswer}</div></div>}
+      {adviceHistory.length>0&&<>
+        <div className="section-label" style={{marginBottom:12,marginTop:24}}>Past questions</div>
+        {adviceHistory.slice(0,5).map(a=>{
+          const isOpen=expandedAdvice===a.id;
+          return <div key={a.id} className="pattern-card" style={{marginBottom:12,cursor:"pointer"}} onClick={()=>setExpandedAdvice(isOpen?null:a.id)}>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8}}>
+              <div style={{fontSize:13,color:"var(--text)",fontWeight:500,flex:1}}>{a.question}</div>
+              <span style={{fontSize:12,color:"var(--text-dim)",flexShrink:0}}>{isOpen?"▲":"▼"}</span>
+            </div>
+            {isOpen&&<>
+              <div style={{height:1,background:"var(--border)",margin:"10px 0"}}/>
+              <div style={{fontSize:12,color:"var(--amber-soft)",fontStyle:"italic",marginBottom:6}}>{formatDate(a.date)}</div>
+              <div style={{fontSize:13,color:"var(--text-muted)",lineHeight:1.65}}>{a.answer}</div>
+            </>}
+          </div>;
+        })}
+      </>}
+    </>}
+
+    {/* ── JOURNAL ── */}
+    {tab==="journal"&&<>
       <div className="date-header">
         <div className="streak-badge-wrap">
           <div className="date-label">{preferredTime?`${preferredTime} reflection`:"end of day reflection"}</div>
@@ -1102,7 +1583,68 @@ const habitDays=isMobile?lastNDays(7):last28Days();
         {(result.stressTags?.length>0||result.joyTags?.length>0)&&<div className="analysis-section"><div className="section-label">Today's signals</div><div className="tags-row">{result.stressTags?.map((t,i)=><span key={i} className="tag tag-stress">↑ {t}</span>)}{result.joyTags?.map((t,i)=><span key={i} className="tag tag-joy">✦ {t}</span>)}</div></div>}
         {result.insight&&<div className="analysis-section"><div className="section-label">Observation</div><div className="insight-box">"{result.insight}"</div></div>}
       </>}
-{result?.error&&<div className="entry-card"><div className="entry-prompt">{result.rateLimit?"You've used all 5 reflections this month":"Couldn't parse that — try again or check your connection."}</div></div>}    </>}
+{result?.error&&<div className="entry-card"><div className="entry-prompt">{result.rateLimit?"You've used all 5 reflections this month":"Couldn't parse that — try again or check your connection."}</div></div>}
+      <div style={{height:1,background:"var(--border)",margin:"32px 0 24px"}}/>
+      <div className="date-header" style={{marginBottom:16}}><div className="date-label">past entries</div><div className="date-main">Your journal</div></div>
+      <div style={{marginBottom:16,position:"relative"}}>
+        <input value={searchQuery} onChange={e=>setSearchQuery(e.target.value)} placeholder="Search entries..." style={{width:"100%",background:"var(--surface)",border:"1px solid var(--border)",borderRadius:12,padding:"12px 16px 12px 40px",color:"var(--text)",fontFamily:"DM Sans,sans-serif",fontSize:14,fontWeight:300,outline:"none"}}/>
+        <span style={{position:"absolute",left:14,top:"50%",transform:"translateY(-50%)",color:"var(--text-dim)",fontSize:14}}>🔍</span>
+        {searchQuery&&<button onClick={()=>setSearchQuery("")} style={{position:"absolute",right:12,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",color:"var(--text-dim)",cursor:"pointer",fontSize:16}}>✕</button>}
+      </div>
+      {dbLoading&&<div className="empty-state">Loading your entries...</div>}
+      {!dbLoading&&entries.length===0&&<div className="empty-state">No entries yet — write your first reflection above.</div>}
+      {(()=>{
+        const allItems=[
+          ...entries.map(e=>({...e,_type:"entry"})),
+          ...adviceHistory.map(a=>({...a,_type:"advice"})),
+        ].sort((a,b)=>b.date!==a.date?b.date.localeCompare(a.date):new Date(b.created_at)-new Date(a.created_at));
+        const filtered=allItems.filter(item=>{
+          if(!searchQuery) return true;
+          const q=searchQuery.toLowerCase();
+          if(item._type==="advice") return item.question.toLowerCase().includes(q)||item.answer.toLowerCase().includes(q);
+          return item.text.toLowerCase().includes(q)||item.insight?.toLowerCase().includes(q)||item.stressTags?.some(t=>t.toLowerCase().includes(q))||item.joyTags?.some(t=>t.toLowerCase().includes(q));
+        });
+        return filtered.map(item=>{
+          if(item._type==="advice") return(
+            <div key={"adv-"+item.id} className="pattern-card" style={{marginBottom:14,borderLeft:"2px solid var(--amber-soft)"}}>
+              <div style={{fontSize:12,color:"var(--amber-soft)",fontFamily:"Playfair Display,serif",fontStyle:"italic",marginBottom:6}}>{formatDate(item.date)} · question</div>
+              <div style={{fontSize:13,color:"var(--text)",fontWeight:500,marginBottom:8}}>{item.question}</div>
+              <div style={{fontSize:13,color:"var(--text-muted)",lineHeight:1.65}}>{item.answer}</div>
+            </div>
+          );
+          const entry=item; const mobj=entry.mood?MOODS[entry.mood-1]:null; const isExpanded=expandedEntry===entry.id; const isEditing=editingEntry===entry.id;
+          return(
+            <div key={entry.id} className="pattern-card" style={{marginBottom:14,cursor:"pointer"}} onClick={()=>!isEditing&&setExpandedEntry(isExpanded?null:entry.id)}>
+              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
+                <div style={{fontSize:12,color:"var(--amber-soft)",fontFamily:"Playfair Display,serif",fontStyle:"italic"}}>{formatDate(entry.date)}</div>
+                <div style={{display:"flex",alignItems:"center",gap:10}}>
+                  {mobj&&<div style={{display:"flex",alignItems:"center",gap:5,fontSize:12,color:"var(--text-muted)"}}><span>{mobj.emoji}</span><span style={{fontStyle:"italic"}}>{mobj.label}</span></div>}
+                  <span style={{fontSize:12,color:"var(--text-dim)"}}>{isExpanded?"▲":"▼"}</span>
+                  <button onClick={async(e)=>{ e.stopPropagation(); if(!window.confirm("Delete this entry?")) return; await supabase.from("entries").delete().eq("id",entry.id); setEntries(p=>p.filter(e=>e.id!==entry.id)); }} style={{background:"none",border:"none",color:"var(--text-dim)",cursor:"pointer",fontSize:14,padding:"0 4px",transition:"color 0.15s"}} onMouseOver={e=>e.target.style.color="var(--rose)"} onMouseOut={e=>e.target.style.color="var(--text-dim)"}>✕</button>
+                </div>
+              </div>
+              {!isExpanded&&<>
+                <p style={{marginBottom:8,fontSize:14,lineHeight:1.65,color:"var(--text-muted)",fontStyle:"italic"}}>{entry.insight||entry.text.slice(0,120)+(entry.text.length>120?"...":"")}</p>
+                {(entry.stressTags?.length>0||entry.joyTags?.length>0)&&<div className="tags-row">{entry.stressTags?.map((t,i)=><span key={i} className="tag tag-stress">↑ {t}</span>)}{entry.joyTags?.map((t,i)=><span key={i} className="tag tag-joy">✦ {t}</span>)}</div>}
+              </>}
+              {isExpanded&&!isEditing&&<>
+                <p style={{marginBottom:12,fontSize:14,lineHeight:1.75}}>{entry.text}</p>
+                {(entry.stressTags?.length>0||entry.joyTags?.length>0)&&<div className="tags-row" style={{marginBottom:12}}>{entry.stressTags?.map((t,i)=><span key={i} className="tag tag-stress">↑ {t}</span>)}{entry.joyTags?.map((t,i)=><span key={i} className="tag tag-joy">✦ {t}</span>)}</div>}
+                {entry.todos?.length>0&&<div style={{fontSize:12,color:"var(--text-muted)",marginBottom:12}}>{entry.todos.length} action item{entry.todos.length!==1?"s":""}</div>}
+                <button onClick={e=>{e.stopPropagation();setEditingEntry(entry.id);setEditingText(entry.text);}} style={{background:"none",border:"1px solid var(--border)",borderRadius:8,padding:"6px 14px",color:"var(--text-muted)",fontFamily:"DM Sans,sans-serif",fontSize:12,cursor:"pointer"}}>Edit entry</button>
+              </>}
+              {isEditing&&<div onClick={e=>e.stopPropagation()}>
+                <textarea value={editingText} onChange={e=>setEditingText(e.target.value)} style={{width:"100%",background:"var(--surface2)",border:"1px solid var(--amber)",borderRadius:10,padding:"12px",color:"var(--text)",fontFamily:"DM Sans,sans-serif",fontSize:14,lineHeight:1.7,outline:"none",resize:"vertical",minHeight:160}}/>
+                <div style={{display:"flex",gap:8,marginTop:8}}>
+                  <button onClick={async()=>{ await supabase.from("entries").update({text:editingText}).eq("id",entry.id); setEntries(p=>p.map(e=>e.id===entry.id?{...e,text:editingText}:e)); setEditingEntry(null); }} style={{padding:"8px 16px",borderRadius:8,background:"var(--amber)",border:"none",color:"#0e0c0a",fontFamily:"DM Sans,sans-serif",fontSize:13,cursor:"pointer"}}>Save</button>
+                  <button onClick={()=>setEditingEntry(null)} style={{padding:"8px 16px",borderRadius:8,background:"transparent",border:"1px solid var(--border)",color:"var(--text-muted)",fontFamily:"DM Sans,sans-serif",fontSize:13,cursor:"pointer"}}>Cancel</button>
+                </div>
+              </div>}
+            </div>
+          );
+        });
+      })()}
+    </>}
 
     {/* ── PLAN ── */}
     {tab==="plan"&&entries.length<3&&<>
@@ -1114,7 +1656,7 @@ const habitDays=isMobile?lastNDays(7):last28Days();
         <div style={{fontSize:36,marginBottom:14,opacity:0.4}}>✦</div>
         <div style={{fontFamily:"Playfair Display,serif",fontSize:22,color:"var(--cream)",marginBottom:10}}>{3-entries.length} more {3-entries.length===1?"entry":"entries"}</div>
         <p style={{fontSize:14,color:"var(--text-muted)",lineHeight:1.7,maxWidth:300,margin:"0 auto"}}>Plan Your Day works best once we understand your rhythm. Log a few reflections first and this will unlock.</p>
-        <button onClick={()=>{haptic("light");setTab("today");}} style={{marginTop:20,padding:"10px 20px",borderRadius:10,background:"var(--amber)",border:"none",color:"#0e0c0a",fontFamily:"DM Sans,sans-serif",fontSize:13,fontWeight:500,cursor:"pointer"}}>Log today's entry →</button>
+        <button onClick={()=>{haptic("light");setTab("journal");}} style={{marginTop:20,padding:"10px 20px",borderRadius:10,background:"var(--amber)",border:"none",color:"#0e0c0a",fontFamily:"DM Sans,sans-serif",fontSize:13,fontWeight:500,cursor:"pointer"}}>Log today's entry →</button>
       </div>
     </>}
     {tab==="plan"&&entries.length>=3&&<>
@@ -1170,8 +1712,6 @@ const habitDays=isMobile?lastNDays(7):last28Days();
         <div className="date-label">build your life</div>
         <div className="date-main">Habits & Goals</div>
       </div>
-      <HabitsSection />
-      <div style={{height:1,background:"var(--border)",margin:"8px 0 32px"}}/>
       <GoalsSection />
     </>}
 
@@ -1185,7 +1725,7 @@ const habitDays=isMobile?lastNDays(7):last28Days();
         <div style={{fontSize:36,marginBottom:14,opacity:0.4}}>✦</div>
         <div style={{fontFamily:"Playfair Display,serif",fontSize:22,color:"var(--cream)",marginBottom:10}}>{7-entries.length} more {7-entries.length===1?"entry":"entries"}</div>
         <p style={{fontSize:14,color:"var(--text-muted)",lineHeight:1.7,maxWidth:300,margin:"0 auto"}}>Patterns need a week of data to be meaningful. Keep journaling and this will unlock with your stress and joy categories, weekly digests, and trends.</p>
-        <button onClick={()=>{haptic("light");setTab("today");}} style={{marginTop:20,padding:"10px 20px",borderRadius:10,background:"var(--amber)",border:"none",color:"#0e0c0a",fontFamily:"DM Sans,sans-serif",fontSize:13,fontWeight:500,cursor:"pointer"}}>Log today's entry →</button>
+        <button onClick={()=>{haptic("light");setTab("journal");}} style={{marginTop:20,padding:"10px 20px",borderRadius:10,background:"var(--amber)",border:"none",color:"#0e0c0a",fontFamily:"DM Sans,sans-serif",fontSize:13,fontWeight:500,cursor:"pointer"}}>Log today's entry →</button>
       </div>
     </>}
     {tab==="patterns"&&entries.length>=7&&<>
@@ -1227,44 +1767,6 @@ const habitDays=isMobile?lastNDays(7):last28Days();
      </div>
     </>}
 
-    {/* ── HISTORY ── */}
-    {tab==="history"&&<>
-<div className="date-header"><div className="date-label">past entries</div><div className="date-main">Your journal</div></div>
-      <div style={{marginBottom:16,position:"relative"}}>
-        <input value={searchQuery} onChange={e=>setSearchQuery(e.target.value)} placeholder="Search entries..." style={{width:"100%",background:"var(--surface)",border:"1px solid var(--border)",borderRadius:12,padding:"12px 16px 12px 40px",color:"var(--text)",fontFamily:"DM Sans,sans-serif",fontSize:14,fontWeight:300,outline:"none"}}/>
-        <span style={{position:"absolute",left:14,top:"50%",transform:"translateY(-50%)",color:"var(--text-dim)",fontSize:14}}>🔍</span>
-        {searchQuery&&<button onClick={()=>setSearchQuery("")} style={{position:"absolute",right:12,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",color:"var(--text-dim)",cursor:"pointer",fontSize:16}}>✕</button>}
-      </div>
-            {dbLoading&&<div className="empty-state">Loading your entries...</div>}
-      {!dbLoading&&entries.length===0&&<div className="empty-state">No entries yet — write your first one in Today.</div>}
-      {entries.filter(e=>!searchQuery||e.text.toLowerCase().includes(searchQuery.toLowerCase())||e.insight?.toLowerCase().includes(searchQuery.toLowerCase())||e.stressTags?.some(t=>t.toLowerCase().includes(searchQuery.toLowerCase()))||e.joyTags?.some(t=>t.toLowerCase().includes(searchQuery.toLowerCase()))).map(entry=>{ const mobj=entry.mood?MOODS[entry.mood-1]:null; const isExpanded=expandedEntry===entry.id; const isEditing=editingEntry===entry.id; return <div key={entry.id} className="pattern-card" style={{marginBottom:14,cursor:"pointer"}} onClick={()=>!isEditing&&setExpandedEntry(isExpanded?null:entry.id)}>
-        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
-          <div style={{fontSize:12,color:"var(--amber-soft)",fontFamily:"Playfair Display,serif",fontStyle:"italic"}}>{formatDate(entry.date)}</div>
-          <div style={{display:"flex",alignItems:"center",gap:10}}>
-            {mobj&&<div style={{display:"flex",alignItems:"center",gap:5,fontSize:12,color:"var(--text-muted)"}}><span>{mobj.emoji}</span><span style={{fontStyle:"italic"}}>{mobj.label}</span></div>}
-            <span style={{fontSize:12,color:"var(--text-dim)"}}>{isExpanded?"▲":"▼"}</span>
-            <button onClick={async(e)=>{ e.stopPropagation(); if(!window.confirm("Delete this entry?")) return; await supabase.from("entries").delete().eq("id",entry.id); setEntries(p=>p.filter(e=>e.id!==entry.id)); }} style={{background:"none",border:"none",color:"var(--text-dim)",cursor:"pointer",fontSize:14,padding:"0 4px",transition:"color 0.15s"}} onMouseOver={e=>e.target.style.color="var(--rose)"} onMouseOut={e=>e.target.style.color="var(--text-dim)"}>✕</button>
-          </div>
-        </div>
-        {!isExpanded&&<>
-          <p style={{marginBottom:8,fontSize:14,lineHeight:1.65,color:"var(--text-muted)",fontStyle:"italic"}}>{entry.insight||entry.text.slice(0,120)+(entry.text.length>120?"...":"")}</p>
-          {(entry.stressTags?.length>0||entry.joyTags?.length>0)&&<div className="tags-row">{entry.stressTags?.map((t,i)=><span key={i} className="tag tag-stress">↑ {t}</span>)}{entry.joyTags?.map((t,i)=><span key={i} className="tag tag-joy">✦ {t}</span>)}</div>}
-        </>}
-        {isExpanded&&!isEditing&&<>
-          <p style={{marginBottom:12,fontSize:14,lineHeight:1.75}}>{entry.text}</p>
-          {(entry.stressTags?.length>0||entry.joyTags?.length>0)&&<div className="tags-row" style={{marginBottom:12}}>{entry.stressTags?.map((t,i)=><span key={i} className="tag tag-stress">↑ {t}</span>)}{entry.joyTags?.map((t,i)=><span key={i} className="tag tag-joy">✦ {t}</span>)}</div>}
-          {entry.todos?.length>0&&<div style={{fontSize:12,color:"var(--text-muted)",marginBottom:12}}>{entry.todos.length} action item{entry.todos.length!==1?"s":""}</div>}
-          <button onClick={e=>{e.stopPropagation();setEditingEntry(entry.id);setEditingText(entry.text);}} style={{background:"none",border:"1px solid var(--border)",borderRadius:8,padding:"6px 14px",color:"var(--text-muted)",fontFamily:"DM Sans,sans-serif",fontSize:12,cursor:"pointer"}}>Edit entry</button>
-        </>}
-        {isEditing&&<div onClick={e=>e.stopPropagation()}>
-          <textarea value={editingText} onChange={e=>setEditingText(e.target.value)} style={{width:"100%",background:"var(--surface2)",border:"1px solid var(--amber)",borderRadius:10,padding:"12px",color:"var(--text)",fontFamily:"DM Sans,sans-serif",fontSize:14,lineHeight:1.7,outline:"none",resize:"vertical",minHeight:160}}/>
-          <div style={{display:"flex",gap:8,marginTop:8}}>
-            <button onClick={async()=>{ await supabase.from("entries").update({text:editingText}).eq("id",entry.id); setEntries(p=>p.map(e=>e.id===entry.id?{...e,text:editingText}:e)); setEditingEntry(null); }} style={{padding:"8px 16px",borderRadius:8,background:"var(--amber)",border:"none",color:"#0e0c0a",fontFamily:"DM Sans,sans-serif",fontSize:13,cursor:"pointer"}}>Save</button>
-            <button onClick={()=>setEditingEntry(null)} style={{padding:"8px 16px",borderRadius:8,background:"transparent",border:"1px solid var(--border)",color:"var(--text-muted)",fontFamily:"DM Sans,sans-serif",fontSize:13,cursor:"pointer"}}>Cancel</button>
-          </div>
-        </div>}
-      </div>; })}
-    </>}
 
   {showUpgrade&&(()=>{
     // find monthly and annual packages from RC, fall back to static labels
