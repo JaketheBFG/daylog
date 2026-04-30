@@ -1,5 +1,5 @@
 {
-  "appId": "com.throughline.app",
+  "appId": "com.jake.throughline.app",
   "appName": "Throughline",
   "webDir": "dist",
   "ios": {
