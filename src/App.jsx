@@ -106,6 +106,10 @@ const STYLES = `
 
   /* ── MOOD ── */
   .mood-row { display:flex; align-items:center; gap:6px; margin-bottom:20px; flex-wrap:nowrap; }
+  .mood-slider-wrap { margin-bottom:20px; }
+  .mood-slider { -webkit-appearance:none; appearance:none; width:100%; height:5px; border-radius:3px; outline:none; cursor:pointer; background:linear-gradient(to right,#c4605a 0%,#a07850 25%,#8a8060 50%,#c8882a 75%,#e8a84a 100%); margin:10px 0 6px; }
+  .mood-slider::-webkit-slider-thumb { -webkit-appearance:none; width:22px; height:22px; border-radius:50%; background:var(--surface); border:2.5px solid var(--border); cursor:pointer; box-shadow:0 1px 6px rgba(0,0,0,0.5); transition:border-color 0.15s; }
+  .mood-slider::-moz-range-thumb { width:22px; height:22px; border-radius:50%; background:var(--surface); border:2.5px solid var(--border); cursor:pointer; box-shadow:0 1px 6px rgba(0,0,0,0.5); }
   .mood-label { font-size:12px; color:var(--text-muted); margin-right:2px; white-space:nowrap; flex-shrink:0; }
   .mood-btn { width:34px; height:34px; border-radius:10px; border:1.5px solid var(--border); background:var(--surface); cursor:pointer; font-size:16px; display:flex; align-items:center; justify-content:center; transition:all 0.15s; flex-shrink:0; }
   .mood-btn:hover { transform:scale(1.15); border-color:var(--text-muted); }
@@ -278,12 +282,14 @@ const STYLES = `
 `;
 
 const MOODS = [
-  {emoji:"😔",label:"rough", score:1,color:"#a04040"},
-  {emoji:"😕",label:"meh",   score:2,color:"#a06830"},
-  {emoji:"😐",label:"okay",  score:3,color:"#8a8050"},
-  {emoji:"🙂",label:"good",  score:4,color:"#508a60"},
-  {emoji:"😄",label:"great", score:5,color:"#3a8a6a"},
+  {emoji:"😔",label:"Rough", score:1,color:"#c4605a"},
+  {emoji:"😕",label:"Hard",  score:2,color:"#a07850"},
+  {emoji:"😐",label:"Okay",  score:3,color:"#8a8060"},
+  {emoji:"🙂",label:"Good",  score:4,color:"#c8882a"},
+  {emoji:"😄",label:"Great", score:5,color:"#e8a84a"},
 ];
+const MOOD_COLORS={1:"#c4605a",2:"#a07850",3:"#8a8060",4:"#c8882a",5:"#e8a84a"};
+const MOOD_LABELS={1:"Rough",2:"Hard",3:"Okay",4:"Good",5:"Great"};
 const HABIT_COLORS = ["#6a9e78","#7a9ec4","#c4a45a","#a47ac4","#c4705a","#5ab4c4"];
 const WEEK_DAYS = ["M","T","W","T","F","S","S"];
 const OB_TIMES = [
@@ -1523,10 +1529,21 @@ const habitDays=isMobile?lastNDays(7):last28Days();
           <input type="date" value={selectedDate} onChange={e=>setSelectedDate(e.target.value)} max={todayStr} style={{background:"var(--surface2)",border:"1px solid var(--border)",borderRadius:8,padding:"6px 10px",color:"var(--text-muted)",fontFamily:"DM Sans,sans-serif",fontSize:12,outline:"none",cursor:"pointer"}}/>
         </div>
       </div>
-      <div className="mood-row">
-        <span className="mood-label">How are you feeling?</span>
-        {MOODS.map(m=><button key={m.score} className={`mood-btn ${todayMood===m.score?"selected":""}`} onClick={()=>{haptic("light");setTodayMood(s=>s===m.score?null:m.score);}} title={m.label}>{m.emoji}</button>)}
-        {todayMood&&<span className="mood-score-display">"{MOODS[todayMood-1].label}"</span>}
+      <div className="mood-slider-wrap">
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+          <span style={{fontSize:12,color:"var(--text-dim)",letterSpacing:"0.3px"}}>How was your day?</span>
+          {todayMood
+            ? <span style={{fontSize:13,fontWeight:500,color:MOOD_COLORS[todayMood]}}>{MOOD_LABELS[todayMood]}</span>
+            : <span style={{fontSize:12,color:"var(--text-dim)",fontStyle:"italic"}}>slide to rate</span>}
+        </div>
+        <input type="range" min={1} max={5} step={1} value={todayMood||3}
+          onChange={e=>{haptic("light");setTodayMood(Number(e.target.value));}}
+          className="mood-slider"
+          style={todayMood?{accentColor:MOOD_COLORS[todayMood]}:{opacity:0.45}}
+        />
+        <div style={{display:"flex",justifyContent:"space-between"}}>
+          {[1,2,3,4,5].map(n=><span key={n} style={{fontSize:10,color:todayMood===n?MOOD_COLORS[n]:"var(--text-dim)",fontWeight:todayMood===n?500:400,transition:"color 0.15s"}}>{MOOD_LABELS[n]}</span>)}
+        </div>
       </div>
       <div className="entry-card">
         <div className="entry-prompt">{preferredTime==="morning"?"What are you carrying into today?":"How was your day? Speak or write freely — no structure needed."}</div>
@@ -1538,37 +1555,7 @@ const habitDays=isMobile?lastNDays(7):last28Days();
             {["Today I had a conversation that made me think...", "I've been feeling...", "Something I want to remember from today..."].map((prompt,i)=><button key={i} onClick={()=>setText(prompt)} style={{background:"var(--surface2)",border:"1px solid var(--border)",borderRadius:10,padding:"10px 14px",color:"var(--text-muted)",fontFamily:"DM Sans,sans-serif",fontSize:13,cursor:"pointer",textAlign:"left",transition:"all 0.15s"}}>{prompt}</button>)}
           </div>
         </div>}
-        <textarea className="entry-textarea" placeholder="Today I... the meeting went... I felt... I need to remember..." value={text} onChange={e=>setText(e.target.value)} rows={6}/>        {[{key:"todos",emoji:"📝",label:"To-dos",placeholder:"Things I need to do...",val:subTodos,set:setSubTodos},{key:"learned",emoji:"💡",label:"Things I learned",placeholder:"Something I picked up today...",val:subLearned,set:setSubLearned},{key:"gratitude",emoji:"🙏",label:"Gratitude",placeholder:"What I'm grateful for...",val:subGratitude,set:setSubGratitude}].map(s=>(
-          <div key={s.key}>
-            <div className="subsection-toggle" onClick={()=>setExpandedSections(p=>({...p,[s.key]:!p[s.key]}))}>
-              <span className="subsection-emoji">{s.emoji}</span>
-              <span className="subsection-label">{s.label}{s.val&&<span style={{color:"var(--amber-soft)",marginLeft:6}}>✦</span>}</span>
-              <span className={`subsection-chevron ${expandedSections[s.key]?"open":""}`}>▶</span>
-            </div>
-            {expandedSections[s.key]&&<div className="subsection-body"><textarea className="subsection-textarea" placeholder={s.placeholder} value={s.val} onChange={e=>s.set(e.target.value)} rows={3}/></div>}
-          </div>
-        ))}
-        {habits.length>0&&<div>
-          <div className="subsection-toggle" onClick={()=>setExpandedSections(p=>({...p,habits:!p.habits}))}>
-            <span className="subsection-emoji">🌿</span>
-            <span className="subsection-label">Habits{Object.keys(expandedSections).includes("habits")&&habits.some(h=>h.checked?.[selectedDate])&&<span style={{color:"var(--amber-soft)",marginLeft:6}}>✦</span>}</span>
-            <span className={`subsection-chevron ${expandedSections.habits?"open":""}`}>▶</span>
-          </div>
-          {expandedSections.habits&&<div className="subsection-body" style={{display:"flex",flexDirection:"column",gap:10}}>
-            {habits.map(h=>{
-              const isChecked=!!(h.checked?.[selectedDate]);
-              return <div key={h.id} style={{display:"flex",alignItems:"center",gap:10,cursor:"pointer"}} onClick={async()=>{
-                haptic("light");
-                const newChecked={...h.checked,[selectedDate]:!isChecked};
-                setHabits(p=>p.map(x=>x.id===h.id?{...x,checked:newChecked}:x));
-                await supabase.from("habits").update({checked:newChecked}).eq("id",h.id);
-              }}>
-                <div style={{width:18,height:18,borderRadius:4,border:`2px solid ${isChecked?h.color||"var(--amber)":"var(--border)"}`,background:isChecked?h.color||"var(--amber)":"transparent",flexShrink:0,transition:"all 0.15s"}}/>
-                <span style={{fontSize:13,color:isChecked?"var(--text)":"var(--text-muted)"}}>{h.name}</span>
-              </div>;
-            })}
-          </div>}
-        </div>}
+        <textarea className="entry-textarea" placeholder="Today I... the meeting went... I felt... I need to remember..." value={text} onChange={e=>setText(e.target.value)} rows={6}/>
         <div className="entry-footer">
           <span className="char-count">{text.length} characters</span>
           <div className="entry-actions">
