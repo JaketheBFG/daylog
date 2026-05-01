@@ -590,6 +590,13 @@ const [editingText,setEditingText]=useState("");
   };
 
   // ── RevenueCat / IAP ──
+  const RC_ENTITLEMENT="pro";
+  const syncProStatus=async(customerInfo)=>{
+    const active=!!customerInfo.entitlements.active[RC_ENTITLEMENT];
+    setIsPro(active);
+    await supabase.from("profiles").upsert({id:session.user.id,is_pro:active},{onConflict:"id"});
+  };
+
   useEffect(()=>{
     if(!session||!window.Capacitor) return;
     const key=import.meta.env.VITE_REVENUECAT_IOS_KEY;
@@ -600,11 +607,8 @@ const [editingText,setEditingText]=useState("");
         await Purchases.setLogLevel({level:LOG_LEVEL.ERROR});
         await Purchases.configure({apiKey:key,appUserID:session.user.id});
         const {customerInfo}=await Purchases.getCustomerInfo();
-        if(customerInfo.entitlements.active["pro"]){
-          setIsPro(true);
-          await supabase.from("profiles").upsert({id:session.user.id,is_pro:true},{onConflict:"id"});
-        }
-      }catch(e){ console.log("RC init",e); }
+        await syncProStatus(customerInfo);
+      }catch(e){ console.log("RC init error:",e); }
     })();
   },[session?.user?.id]);
 
@@ -614,9 +618,17 @@ const [editingText,setEditingText]=useState("");
     try{
       const {Purchases}=await import("@revenuecat/purchases-capacitor");
       const {offerings}=await Purchases.getOfferings();
-      setIapPackages(offerings.current?.availablePackages||[]);
-    }catch(e){}
+      const pkgs=offerings.current?.availablePackages||[];
+      if(pkgs.length===0) console.warn("RC: no packages in current offering — check dashboard");
+      setIapPackages(pkgs);
+    }catch(e){ console.log("RC offerings error:",e); }
     setIapLoading(false);
+  };
+
+  const isCancelError=(e)=>{
+    const msg=(e?.message||"").toLowerCase();
+    const code=e?.code||e?.underlyingErrorMessage||"";
+    return msg.includes("cancel") || msg.includes("cancelled") || String(code).includes("2");
   };
 
   const handlePurchase=async(pkg)=>{
@@ -625,11 +637,11 @@ const [editingText,setEditingText]=useState("");
     try{
       const {Purchases}=await import("@revenuecat/purchases-capacitor");
       const {customerInfo}=await Purchases.purchasePackage({aPackage:pkg});
-      if(customerInfo.entitlements.active["pro"]){
-        await supabase.from("profiles").upsert({id:session.user.id,is_pro:true},{onConflict:"id"});
-        setIsPro(true); setShowUpgrade(false); haptic("heavy");
-      }
-    }catch(e){ if(!e.message?.includes("CANCELLED")) alert("Purchase failed — please try again."); }
+      await syncProStatus(customerInfo);
+      if(customerInfo.entitlements.active[RC_ENTITLEMENT]){ setShowUpgrade(false); haptic("heavy"); }
+    }catch(e){
+      if(!isCancelError(e)) alert("Purchase failed — please try again.");
+    }
     setPurchasing(null);
   };
 
@@ -639,11 +651,16 @@ const [editingText,setEditingText]=useState("");
     try{
       const {Purchases}=await import("@revenuecat/purchases-capacitor");
       const {customerInfo}=await Purchases.restorePurchases();
-      if(customerInfo.entitlements.active["pro"]){
-        await supabase.from("profiles").upsert({id:session.user.id,is_pro:true},{onConflict:"id"});
-        setIsPro(true); setShowUpgrade(false);
-      } else { alert("No active subscription found."); }
-    }catch(e){}
+      await syncProStatus(customerInfo);
+      if(customerInfo.entitlements.active[RC_ENTITLEMENT]){
+        setShowUpgrade(false);
+      } else {
+        alert("No active subscription found.");
+      }
+    }catch(e){
+      console.log("RC restore error:",e);
+      alert("Restore failed — check your connection and try again.");
+    }
     setRestoring(false);
   };
 
