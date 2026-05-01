@@ -183,8 +183,8 @@ const STYLES = `
   .digest-section-label { font-size:10px; font-weight:500; letter-spacing:1.5px; text-transform:uppercase; color:var(--text-dim); margin-bottom:5px; }
   .digest-body { font-size:14px; line-height:1.7; color:var(--text); }
   .digest-nudge { font-size:14px; line-height:1.7; color:var(--amber-soft); }
-  .digest-gen-btn { display:flex; align-items:center; gap:8px; width:100%; background:var(--sky-dim); border:1px dashed rgba(106,158,196,0.3); border-radius:12px; padding:14px 18px; cursor:pointer; transition:all 0.2s; color:var(--sky); font-family:'DM Sans',sans-serif; font-size:13px; margin-bottom:14px; }
-  .digest-gen-btn:hover { background:rgba(26,42,58,0.9); }
+  .digest-gen-btn { display:flex; align-items:center; gap:8px; width:100%; background:rgba(212,175,55,0.07); border:1px dashed rgba(212,175,55,0.3); border-radius:12px; padding:14px 18px; cursor:pointer; transition:all 0.2s; color:var(--amber-soft); font-family:'DM Sans',sans-serif; font-size:13px; margin-bottom:14px; }
+  .digest-gen-btn:hover { background:rgba(212,175,55,0.12); }
   .digest-gen-btn:disabled { opacity:0.5; cursor:not-allowed; }
   .summary-card { background:linear-gradient(135deg,var(--surface),var(--surface2)); border:1px solid var(--border); border-radius:14px; padding:24px; margin-bottom:14px; }
   .summary-month { font-family:'Playfair Display',serif; font-style:italic; font-size:13px; color:var(--amber-soft); margin-bottom:8px; }
@@ -221,10 +221,10 @@ const STYLES = `
   .day-block-add-btn:hover { color:var(--amber); }
   .day-block-items { padding:0 16px; }
   .day-block-item { display:flex; align-items:center; gap:8px; padding:8px 0; border-top:1px solid var(--border); }
-  .day-block-item-text { font-size:13px; color:var(--text-muted); flex:1; line-height:1.4; }
+  .day-block-item-text { font-size:13px; color:var(--text); flex:1; line-height:1.4; transition:all 0.2s; }
+  .day-block-item-text.done { text-decoration:line-through; color:var(--text-dim); }
   .day-block-item-del { background:none; border:none; color:var(--text-dim); cursor:pointer; font-size:14px; padding:0; transition:color 0.15s; }
   .day-block-item-del:hover { color:var(--rose); }
-  .day-block-item.from-todo .day-block-item-text { color:var(--text); }
   .day-block-add-row { display:flex; gap:6px; padding:8px 16px 12px; border-top:1px solid var(--border); }
   .day-block-input { flex:1; background:var(--surface2); border:1px solid var(--amber); border-radius:8px; padding:8px 10px; color:var(--text); font-family:'DM Sans',sans-serif; font-size:13px; outline:none; }
   .day-block-input-submit { background:var(--amber); border:none; border-radius:8px; padding:8px 12px; color:#0e0c0a; font-family:'DM Sans',sans-serif; font-size:12px; font-weight:500; cursor:pointer; }
@@ -809,8 +809,13 @@ const {error}=await supabase.auth.resetPasswordForEmail(authEmail,{redirectTo:"h
   const savePlanToStorage=(plan,todos,tevents)=>{
     localStorage.setItem(`dayplan_${todayStr}`,JSON.stringify({plan,todos,timelineEvents:tevents}));
   };
+  const toggleTimelineEvent=(id)=>{
+    const nextEvents=timelineEvents.map(e=>e.id===id?{...e,done:!e.done}:e);
+    setTimelineEvents(nextEvents);
+    savePlanToStorage(dayPlan,planTodos,nextEvents);
+  };
   const addTimelineEvent=(block,text,todoIdx=null)=>{
-    const event={id:Date.now(),block,text,fromTodo:todoIdx!==null};
+    const event={id:Date.now(),block,text,fromTodo:todoIdx!==null,done:false};
     const nextEvents=[...timelineEvents,event];
     setTimelineEvents(nextEvents);
     let nextTodos=planTodos;
@@ -1758,8 +1763,9 @@ const habitDays=isMobile?lastNDays(7):last28Days();
                 <button className="day-block-add-btn" onClick={()=>{haptic("light");setAddingEventAtBlock(isAdding?null:b.key);setNewEventText("");}}>+</button>
               </div>
               {(items.length>0||isAdding)&&<div className="day-block-items">
-                {items.map(ev=><div key={ev.id} className={`day-block-item ${ev.fromTodo?"from-todo":""}`}>
-                  <span className="day-block-item-text">{ev.text}</span>
+                {items.map(ev=><div key={ev.id} className="day-block-item">
+                  <div className={`todo-check ${ev.done?"done":""}`} onClick={()=>{haptic("light");toggleTimelineEvent(ev.id);}}/>
+                  <span className={`day-block-item-text ${ev.done?"done":""}`}>{ev.text}</span>
                   <button className="day-block-item-del" onClick={()=>{haptic("light");removeTimelineEvent(ev.id);}}>×</button>
                 </div>)}
               </div>}
@@ -1797,42 +1803,51 @@ const habitDays=isMobile?lastNDays(7):last28Days();
       </div>
     </>}
     {tab==="patterns"&&entries.length>=7&&<>
-      {!isPro&&<div style={{background:"var(--amber-dim)",border:"1px solid rgba(200,136,42,0.3)",borderRadius:14,padding:"20px",marginBottom:16,textAlign:"center"}}>
+      {!isPro&&<div style={{background:"rgba(212,175,55,0.07)",border:"1px solid rgba(212,175,55,0.2)",borderRadius:14,padding:"20px",marginBottom:16,textAlign:"center"}}>
         <div style={{fontFamily:"Playfair Display,serif",fontSize:16,color:"var(--cream)",marginBottom:6}}>Patterns & Insights</div>
         <p style={{fontSize:13,color:"var(--text-muted)",marginBottom:12}}>Upgrade to Pro to unlock full pattern analysis, stressor tracking, and weekly digests.</p>
         <button onClick={()=>{setShowUpgrade(true);loadIAPPackages();}} style={{padding:"10px 20px",borderRadius:10,background:"var(--amber)",border:"none",color:"#0e0c0a",fontFamily:"DM Sans,sans-serif",fontSize:13,fontWeight:500,cursor:"pointer"}}>Unlock with Pro ✦</button>
       </div>}
       <div className="date-header"><div className="date-label">your patterns</div><div className="date-main">{monthYear}</div></div>
       <div style={{filter:isPro?"none":"blur(3px)",pointerEvents:isPro?"auto":"none",userSelect:isPro?"auto":"none"}}>
-      <div className="section-label" style={{marginBottom:14}}>This week</div>
-      <div style={{overflowX:"auto",marginBottom:28,marginLeft:"-24px",marginRight:"-24px",paddingLeft:"24px",paddingRight:"24px"}}>
-<div className="week-grid" style={{minWidth:280}}>
-        {weekDates.map((d,i)=>{ const hasEntry=entries.some(e=>e.date===d); const mobj=moodForDay(d)?MOODS[moodForDay(d)-1]:null; return <div key={d} className={`day-cell ${hasEntry?"has-entry":""} ${d===todayStr?"active":""}`}><div className="dc-name">{WEEK_DAYS[i]}</div><div className="dc-dot" style={mobj?{background:mobj.color}:{}}/>{mobj&&<div className="dc-mood">{mobj.emoji}</div>}</div>; })}
-      </div>
-      </div>
-      <div className="pattern-card">
-        <h3>Mood this week</h3><p style={{marginBottom:16}}>How you've been feeling day to day.</p>
-        <div className="mood-chart-wrap">{weekDates.map(d=>{ const mood=moodForDay(d); const mobj=mood?MOODS[mood-1]:null; return <div key={d} className="mood-chart-row"><div className="mood-chart-date">{shortDate(d)}</div><div className="mood-chart-bar">{mobj?<div className="mood-chart-fill" style={{width:`${mobj.score*20}%`,background:mobj.color}}><span className="mood-chart-emoji">{mobj.emoji}</span><span className="mood-chart-val">{mobj.label}</span></div>:<span style={{fontSize:11,color:"var(--text-dim)",paddingLeft:10,fontStyle:"italic"}}>no entry</span>}</div></div>; })}</div>
-      </div>
-      <div className="pattern-card">
-        <h3>Weekly digest</h3><p style={{marginBottom:16}}>A personal reflection on your week, written from your entries.</p>
-        <button className="digest-gen-btn" onClick={handleGenerateDigest} disabled={generatingDigest||entries.length===0}>{generatingDigest?<><div className="loading-dots" style={{padding:0}}><span/><span/><span/></div> Writing your digest...</>:<><span>✦</span> Generate this week's digest</>}</button>
-        {digest&&<div className="digest-card"><div className="digest-week">Week of {shortDate(weekDates[0])} — {shortDate(weekDates[6])}</div>{digest.headline&&<div className="digest-headline">"{digest.headline}"</div>}{digest.highlight&&<div className="digest-section"><div className="digest-section-label">Highlight</div><div className="digest-body">{digest.highlight}</div></div>}{digest.pattern&&<div className="digest-section"><div className="digest-section-label">Pattern noticed</div><div className="digest-body">{digest.pattern}</div></div>}{digest.nudge&&<div className="digest-section"><div className="digest-section-label">For next week</div><div className="digest-nudge">{digest.nudge}</div></div>}</div>}
-      </div>
-      <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:20,flexWrap:"wrap"}}>
-        <div style={{display:"flex",gap:4}}>
-          {["week","month","year"].map(p=>{ const locked=(p==="month"||p==="year")&&entries.length<20; return <button key={p} onClick={()=>{ if(locked) return; setPatternPeriod(p);setPatternOffset(0);}} disabled={locked} title={locked?`Unlocks at 20 entries (${20-entries.length} more)`:""} style={{padding:"6px 14px",borderRadius:20,border:"1px solid var(--border)",background:patternPeriod===p?"var(--amber)":"transparent",color:patternPeriod===p?"#0e0c0a":locked?"var(--text-dim)":"var(--text-muted)",fontFamily:"DM Sans,sans-serif",fontSize:12,cursor:locked?"not-allowed":"pointer",opacity:locked?0.5:1,transition:"all 0.15s"}}>{p.charAt(0).toUpperCase()+p.slice(1)}{locked&&" 🔒"}</button>; })}
+        <div className="pattern-card">
+          <div style={{fontSize:10,letterSpacing:"1.5px",textTransform:"uppercase",color:"var(--text-dim)",fontWeight:500,marginBottom:14}}>This week</div>
+          <div className="week-grid">
+            {weekDates.map((d,i)=>{ const hasEntry=entries.some(e=>e.date===d); const mobj=moodForDay(d)?MOODS[moodForDay(d)-1]:null; return <div key={d} className={`day-cell ${hasEntry?"has-entry":""} ${d===todayStr?"active":""}`}><div className="dc-name">{WEEK_DAYS[i]}</div><div className="dc-dot" style={mobj?{background:mobj.color}:{}}/>{mobj&&<div className="dc-mood">{mobj.emoji}</div>}</div>; })}
+          </div>
+          <div style={{height:1,background:"var(--border)",margin:"16px 0"}}/>
+          <div style={{fontSize:10,letterSpacing:"1.5px",textTransform:"uppercase",color:"var(--text-dim)",fontWeight:500,marginBottom:12}}>Mood</div>
+          <div className="mood-chart-wrap">{weekDates.map(d=>{ const mood=moodForDay(d); const mobj=mood?MOODS[mood-1]:null; return <div key={d} className="mood-chart-row"><div className="mood-chart-date">{shortDate(d)}</div><div className="mood-chart-bar">{mobj?<div className="mood-chart-fill" style={{width:`${mobj.score*20}%`,background:mobj.color}}><span className="mood-chart-emoji">{mobj.emoji}</span><span className="mood-chart-val">{mobj.label}</span></div>:<span style={{fontSize:11,color:"var(--text-dim)",paddingLeft:10,fontStyle:"italic"}}>no entry</span>}</div></div>; })}</div>
         </div>
-        <div style={{display:"flex",alignItems:"center",gap:8,marginLeft:"auto"}}>
-          <button onClick={()=>setPatternOffset(p=>p+1)} style={{background:"none",border:"1px solid var(--border)",borderRadius:8,padding:"4px 10px",color:"var(--text-muted)",cursor:"pointer",fontSize:13,fontFamily:"DM Sans,sans-serif",lineHeight:1}}>←</button>
-          <span style={{fontSize:12,color:"var(--text-muted)",minWidth:100,textAlign:"center",fontStyle:"italic"}}>{periodLabel}</span>
-          <button onClick={()=>setPatternOffset(p=>Math.max(0,p-1))} disabled={patternOffset===0} style={{background:"none",border:"1px solid var(--border)",borderRadius:8,padding:"4px 10px",color:patternOffset===0?"var(--text-dim)":"var(--text-muted)",cursor:patternOffset===0?"default":"pointer",fontSize:13,fontFamily:"DM Sans,sans-serif",lineHeight:1,opacity:patternOffset===0?0.4:1}}>→</button>
+        <div className="pattern-card">
+          <h3 style={{marginBottom:4}}>Weekly digest</h3>
+          <p style={{marginBottom:16}}>A personal reflection on your week, written from your entries.</p>
+          <button className="digest-gen-btn" onClick={handleGenerateDigest} disabled={generatingDigest||entries.length===0}>{generatingDigest?<><div className="loading-dots" style={{padding:0}}><span/><span/><span/></div> Writing your digest...</>:<><span>✦</span> Generate this week's digest</>}</button>
+          {digest&&<div className="digest-card"><div className="digest-week">Week of {shortDate(weekDates[0])} — {shortDate(weekDates[6])}</div>{digest.headline&&<div className="digest-headline">"{digest.headline}"</div>}{digest.highlight&&<div className="digest-section"><div className="digest-section-label">Highlight</div><div className="digest-body">{digest.highlight}</div></div>}{digest.pattern&&<div className="digest-section"><div className="digest-section-label">Pattern noticed</div><div className="digest-body">{digest.pattern}</div></div>}{digest.nudge&&<div className="digest-section"><div className="digest-section-label">For next week</div><div className="digest-nudge">{digest.nudge}</div></div>}</div>}
+        </div>
+        <div className="pattern-card">
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16,flexWrap:"wrap",gap:8}}>
+            <h3 style={{margin:0}}>Patterns</h3>
+            <div style={{display:"flex",alignItems:"center",gap:6}}>
+              <button onClick={()=>setPatternOffset(p=>p+1)} style={{background:"none",border:"1px solid var(--border)",borderRadius:8,padding:"4px 10px",color:"var(--text-muted)",cursor:"pointer",fontSize:12,fontFamily:"DM Sans,sans-serif",lineHeight:1}}>←</button>
+              <div style={{display:"flex",gap:3}}>
+                {["week","month","year"].map(p=>{ const locked=(p==="month"||p==="year")&&entries.length<20; return <button key={p} onClick={()=>{ if(locked) return; setPatternPeriod(p);setPatternOffset(0);}} disabled={locked} title={locked?`Unlocks at 20 entries`:""} style={{padding:"4px 12px",borderRadius:16,border:"1px solid var(--border)",background:patternPeriod===p?"var(--amber)":"transparent",color:patternPeriod===p?"#0e0c0a":locked?"var(--text-dim)":"var(--text-muted)",fontFamily:"DM Sans,sans-serif",fontSize:11,cursor:locked?"not-allowed":"pointer",opacity:locked?0.5:1,transition:"all 0.15s"}}>{p.charAt(0).toUpperCase()+p.slice(1)}{locked&&" 🔒"}</button>; })}
+              </div>
+              <button onClick={()=>setPatternOffset(p=>Math.max(0,p-1))} disabled={patternOffset===0} style={{background:"none",border:"1px solid var(--border)",borderRadius:8,padding:"4px 10px",color:patternOffset===0?"var(--text-dim)":"var(--text-muted)",cursor:patternOffset===0?"default":"pointer",fontSize:12,fontFamily:"DM Sans,sans-serif",lineHeight:1,opacity:patternOffset===0?0.4:1}}>→</button>
+            </div>
+          </div>
+          <p style={{marginBottom:14,fontSize:12,color:"var(--text-dim)",fontStyle:"italic"}}>{periodLabel}</p>
+          <div style={{fontSize:10,letterSpacing:"1.5px",textTransform:"uppercase",color:"var(--text-dim)",fontWeight:500,marginBottom:10}}>Friction points</div>
+          {STRESS_PATTERNS.length===0?<div style={{fontSize:13,color:"var(--text-dim)",fontStyle:"italic",marginBottom:16}}>No patterns yet — keep journaling.</div>:<div className="bar-chart" style={{marginBottom:20}}>{STRESS_PATTERNS.map(p=><div key={p.label} className="bar-row"><div className="bar-label">{p.label}</div><div className="bar-track"><div className="bar-fill stress" style={{width:`${p.pct}%`}}/></div><div className="bar-pct">{p.count}x</div></div>)}</div>}
+          <div style={{height:1,background:"var(--border)",margin:"4px 0 14px"}}/>
+          <div style={{fontSize:10,letterSpacing:"1.5px",textTransform:"uppercase",color:"var(--text-dim)",fontWeight:500,marginBottom:10}}>What lights you up</div>
+          {JOY_PATTERNS.length===0?<div style={{fontSize:13,color:"var(--text-dim)",fontStyle:"italic"}}>No patterns yet — keep journaling.</div>:<div className="bar-chart">{JOY_PATTERNS.map(p=><div key={p.label} className="bar-row"><div className="bar-label">{p.label}</div><div className="bar-track"><div className="bar-fill joy" style={{width:`${p.pct}%`}}/></div><div className="bar-pct">{p.count}x</div></div>)}</div>}
+        </div>
+        <div className="summary-card">
+          <div className="summary-month">Monthly summary · {monthYear}</div>
+          {monthlySummary?<div className="summary-text">{monthlySummary}</div>:<><div className="summary-text" style={{marginBottom:12}}>Generate a personal summary of your month based on your real entries.</div><button className="digest-gen-btn" onClick={handleGenerateMonthlySummary} disabled={generatingMonthlySummary||entries.length===0}>{generatingMonthlySummary?<><div className="loading-dots" style={{padding:0}}><span/><span/><span/></div> Writing your summary...</>:<><span>✦</span> Generate monthly summary</>}</button></>}
         </div>
       </div>
-<div className="pattern-card"><h3>Consistent stressors</h3><p style={{marginBottom:16}}>What comes up most when you're feeling friction.</p>{STRESS_PATTERNS.length===0?<div style={{fontSize:13,color:"var(--text-dim)",fontStyle:"italic"}}>No patterns yet — keep journaling and they'll appear here.</div>:<div className="bar-chart">{STRESS_PATTERNS.map(p=><div key={p.label} className="bar-row"><div className="bar-label">{p.label}</div><div className="bar-track"><div className="bar-fill stress" style={{width:`${p.pct}%`}}/></div><div className="bar-pct">{p.count}x</div></div>)}</div>}</div>
-      <div className="pattern-card"><h3>What lights you up</h3><p style={{marginBottom:16}}>Things consistently tied to your better days.</p>{JOY_PATTERNS.length===0?<div style={{fontSize:13,color:"var(--text-dim)",fontStyle:"italic"}}>No patterns yet — keep journaling and they'll appear here.</div>:<div className="bar-chart">{JOY_PATTERNS.map(p=><div key={p.label} className="bar-row"><div className="bar-label">{p.label}</div><div className="bar-track"><div className="bar-fill joy" style={{width:`${p.pct}%`}}/></div><div className="bar-pct">{p.count}x</div></div>)}</div>}</div>
-      <div className="summary-card"><div className="summary-month">Monthly summary · {monthYear}</div>{monthlySummary?<div className="summary-text">{monthlySummary}</div>:<><div className="summary-text" style={{marginBottom:12}}>Generate a personal summary of your month based on your real entries.</div><button className="digest-gen-btn" onClick={handleGenerateMonthlySummary} disabled={generatingMonthlySummary||entries.length===0}>{generatingMonthlySummary?<><div className="loading-dots" style={{padding:0}}><span/><span/><span/></div> Writing your summary...</>:<><span>✦</span> Generate monthly summary</>}</button></>}</div>
-     </div>
     </>}
 
 
