@@ -1829,12 +1829,23 @@ const habitDays=isMobile?lastNDays(7):last28Days();
       <div style={{filter:isPro?"none":"blur(3px)",pointerEvents:isPro?"auto":"none",userSelect:isPro?"auto":"none"}}>
         <div className="pattern-card">
           <div style={{fontSize:10,letterSpacing:"1.5px",textTransform:"uppercase",color:"var(--text-dim)",fontWeight:500,marginBottom:14}}>This week</div>
-          <div className="week-grid">
-            {weekDates.map((d,i)=>{ const hasEntry=entries.some(e=>e.date===d); const mobj=moodForDay(d)?MOODS[moodForDay(d)-1]:null; return <div key={d} className={`day-cell ${hasEntry?"has-entry":""} ${d===todayStr?"active":""}`}><div className="dc-name">{WEEK_DAYS[i]}</div><div className="dc-dot" style={mobj?{background:mobj.color}:{}}/>{mobj&&<div className="dc-mood">{mobj.emoji}</div>}</div>; })}
+          <div style={{display:"flex",gap:6,alignItems:"flex-end",height:64}}>
+            {weekDates.map((d,i)=>{
+              const mobj=moodForDay(d)?MOODS[moodForDay(d)-1]:null;
+              const isToday=d===todayStr;
+              const fillH=mobj?Math.round(mobj.score/5*100):0;
+              return <div key={d} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:4,height:"100%",justifyContent:"flex-end"}}>
+                <div style={{fontSize:13,lineHeight:1,marginBottom:2}}>{mobj?mobj.emoji:""}</div>
+                <div style={{width:"100%",height:44,display:"flex",alignItems:"flex-end",borderRadius:6,overflow:"hidden",background:"var(--surface2)",border:isToday?"1px solid var(--amber)":"1px solid transparent"}}>
+                  {mobj
+                    ?<div style={{width:"100%",height:`${fillH}%`,background:mobj.color,borderRadius:6,transition:"height 0.6s cubic-bezier(0.4,0,0.2,1)"}}/>
+                    :<div style={{width:"100%",height:"100%",background:"transparent"}}/>
+                  }
+                </div>
+                <div style={{fontSize:9,color:isToday?"var(--amber)":"var(--text-dim)",fontWeight:isToday?600:400,letterSpacing:"0.5px",textTransform:"uppercase"}}>{WEEK_DAYS[i]}</div>
+              </div>;
+            })}
           </div>
-          <div style={{height:1,background:"var(--border)",margin:"16px 0"}}/>
-          <div style={{fontSize:10,letterSpacing:"1.5px",textTransform:"uppercase",color:"var(--text-dim)",fontWeight:500,marginBottom:12}}>Mood</div>
-          <div className="mood-chart-wrap">{weekDates.map(d=>{ const mood=moodForDay(d); const mobj=mood?MOODS[mood-1]:null; return <div key={d} className="mood-chart-row"><div className="mood-chart-date">{shortDate(d)}</div><div className="mood-chart-bar">{mobj?<div className="mood-chart-fill" style={{width:`${mobj.score*20}%`,background:mobj.color}}><span className="mood-chart-emoji">{mobj.emoji}</span><span className="mood-chart-val">{mobj.label}</span></div>:<span style={{fontSize:11,color:"var(--text-dim)",paddingLeft:10,fontStyle:"italic"}}>no entry</span>}</div></div>; })}</div>
         </div>
         <div className="pattern-card">
           <h3 style={{marginBottom:4}}>Weekly digest</h3>
