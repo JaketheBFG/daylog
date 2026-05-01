@@ -189,6 +189,22 @@ const STYLES = `
   .summary-card { background:linear-gradient(135deg,var(--surface),var(--surface2)); border:1px solid var(--border); border-radius:14px; padding:24px; margin-bottom:14px; }
   .summary-month { font-family:'Playfair Display',serif; font-style:italic; font-size:13px; color:var(--amber-soft); margin-bottom:8px; }
   .summary-text { font-size:14px; line-height:1.75; color:var(--text); }
+  .bar-row { cursor:pointer; border-radius:6px; padding:2px 0; transition:background 0.15s; }
+  .bar-row:hover { background:rgba(255,255,255,0.03); }
+  /* ── PATTERN BOTTOM SHEET ── */
+  .pattern-sheet-backdrop { position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:200; backdrop-filter:blur(4px); }
+  .pattern-sheet { position:fixed; bottom:0; left:0; right:0; z-index:201; background:var(--surface); border-radius:20px 20px 0 0; border-top:1px solid var(--border); padding:0 0 env(safe-area-inset-bottom,16px); max-height:75vh; display:flex; flex-direction:column; animation:slideUp 0.25s ease; }
+  @keyframes slideUp { from { transform:translateY(100%); } to { transform:translateY(0); } }
+  .pattern-sheet-handle { width:36px; height:4px; background:var(--border); border-radius:2px; margin:12px auto 0; flex-shrink:0; }
+  .pattern-sheet-header { padding:16px 20px 12px; border-bottom:1px solid var(--border); flex-shrink:0; display:flex; align-items:center; justify-content:space-between; }
+  .pattern-sheet-title { font-family:'Playfair Display',serif; font-size:18px; color:var(--cream); }
+  .pattern-sheet-close { background:none; border:none; color:var(--text-dim); font-size:20px; cursor:pointer; padding:0; line-height:1; }
+  .pattern-sheet-body { overflow-y:auto; padding:16px 20px; flex:1; }
+  .pattern-moment { padding:14px 0; border-bottom:1px solid var(--border); }
+  .pattern-moment:last-child { border-bottom:none; }
+  .pattern-moment-date { font-family:'Playfair Display',serif; font-size:12px; font-style:italic; color:var(--amber-soft); margin-bottom:6px; }
+  .pattern-moment-tags { display:flex; flex-wrap:wrap; gap:5px; margin-bottom:8px; }
+  .pattern-moment-excerpt { font-size:13px; color:var(--text-muted); line-height:1.65; font-style:italic; }
 
   /* ── PLAN ── */
   .plan-input-area { width:100%; background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:14px 16px; color:var(--text); font-family:'DM Sans',sans-serif; font-size:15px; font-weight:300; outline:none; transition:border-color 0.2s; resize:none; line-height:1.6; }
@@ -481,6 +497,7 @@ const [selectedDate,setSelectedDate]=useState(todayStr);
   const [showSettings,setShowSettings]=useState(false);
   const [showUpgrade,setShowUpgrade]=useState(false);
   const [expandedEntry,setExpandedEntry]=useState(null);
+  const [expandedPattern,setExpandedPattern]=useState(null); // {type:"stress"|"joy", label}
   const [searchQuery,setSearchQuery]=useState("");
 const [editingEntry,setEditingEntry]=useState(null);
 const [editingText,setEditingText]=useState("");
@@ -1838,10 +1855,10 @@ const habitDays=isMobile?lastNDays(7):last28Days();
           </div>
           <p style={{marginBottom:14,fontSize:12,color:"var(--text-dim)",fontStyle:"italic"}}>{periodLabel}</p>
           <div style={{fontSize:10,letterSpacing:"1.5px",textTransform:"uppercase",color:"var(--text-dim)",fontWeight:500,marginBottom:10}}>Friction points</div>
-          {STRESS_PATTERNS.length===0?<div style={{fontSize:13,color:"var(--text-dim)",fontStyle:"italic",marginBottom:16}}>No patterns yet — keep journaling.</div>:<div className="bar-chart" style={{marginBottom:20}}>{STRESS_PATTERNS.map(p=><div key={p.label} className="bar-row"><div className="bar-label">{p.label}</div><div className="bar-track"><div className="bar-fill stress" style={{width:`${p.pct}%`}}/></div><div className="bar-pct">{p.count}x</div></div>)}</div>}
+          {STRESS_PATTERNS.length===0?<div style={{fontSize:13,color:"var(--text-dim)",fontStyle:"italic",marginBottom:16}}>No patterns yet — keep journaling.</div>:<div className="bar-chart" style={{marginBottom:20}}>{STRESS_PATTERNS.map(p=><div key={p.label} className="bar-row" onClick={()=>{haptic("light");setExpandedPattern({type:"stress",label:p.label});}}><div className="bar-label">{p.label}</div><div className="bar-track"><div className="bar-fill stress" style={{width:`${p.pct}%`}}/></div><div className="bar-pct">{p.count}x</div></div>)}</div>}
           <div style={{height:1,background:"var(--border)",margin:"4px 0 14px"}}/>
           <div style={{fontSize:10,letterSpacing:"1.5px",textTransform:"uppercase",color:"var(--text-dim)",fontWeight:500,marginBottom:10}}>What lights you up</div>
-          {JOY_PATTERNS.length===0?<div style={{fontSize:13,color:"var(--text-dim)",fontStyle:"italic"}}>No patterns yet — keep journaling.</div>:<div className="bar-chart">{JOY_PATTERNS.map(p=><div key={p.label} className="bar-row"><div className="bar-label">{p.label}</div><div className="bar-track"><div className="bar-fill joy" style={{width:`${p.pct}%`}}/></div><div className="bar-pct">{p.count}x</div></div>)}</div>}
+          {JOY_PATTERNS.length===0?<div style={{fontSize:13,color:"var(--text-dim)",fontStyle:"italic"}}>No patterns yet — keep journaling.</div>:<div className="bar-chart">{JOY_PATTERNS.map(p=><div key={p.label} className="bar-row" onClick={()=>{haptic("light");setExpandedPattern({type:"joy",label:p.label});}}><div className="bar-label">{p.label}</div><div className="bar-track"><div className="bar-fill joy" style={{width:`${p.pct}%`}}/></div><div className="bar-pct">{p.count}x</div></div>)}</div>}
         </div>
         <div className="summary-card">
           <div className="summary-month">Monthly summary · {monthYear}</div>
@@ -1851,6 +1868,38 @@ const habitDays=isMobile?lastNDays(7):last28Days();
     </>}
 
 
+  {expandedPattern&&(()=>{
+    const isStress=expandedPattern.type==="stress";
+    const matchingEntries=entries.filter(e=>{
+      const cats=(e.stressCategories?.length?e.stressCategories:e.stressTags)||[];
+      const joyCats=(e.joyCategories?.length?e.joyCategories:e.joyTags)||[];
+      return isStress?cats.some(c=>c.toLowerCase()===expandedPattern.label.toLowerCase()):joyCats.some(c=>c.toLowerCase()===expandedPattern.label.toLowerCase());
+    }).slice(0,10);
+    const specificTags=isStress?"stressTags":"joyTags";
+    return <>
+      <div className="pattern-sheet-backdrop" onClick={()=>setExpandedPattern(null)}/>
+      <div className="pattern-sheet">
+        <div className="pattern-sheet-handle"/>
+        <div className="pattern-sheet-header">
+          <div>
+            <div style={{fontSize:10,letterSpacing:"1.5px",textTransform:"uppercase",color:isStress?"var(--rose)":"var(--sage)",fontWeight:500,marginBottom:4}}>{isStress?"Friction point":"What lights you up"}</div>
+            <div className="pattern-sheet-title">{expandedPattern.label}</div>
+          </div>
+          <button className="pattern-sheet-close" onClick={()=>setExpandedPattern(null)}>✕</button>
+        </div>
+        <div className="pattern-sheet-body">
+          {matchingEntries.length===0&&<div style={{fontSize:14,color:"var(--text-dim)",fontStyle:"italic"}}>No entries found for this period.</div>}
+          {matchingEntries.map(entry=><div key={entry.id} className="pattern-moment">
+            <div className="pattern-moment-date">{formatDate(entry.date)}</div>
+            {entry[specificTags]?.length>0&&<div className="pattern-moment-tags">
+              {entry[specificTags].map((t,i)=><span key={i} className={`tag ${isStress?"tag-stress":"tag-joy"}`}>{isStress?"↑":"✦"} {t}</span>)}
+            </div>}
+            <div className="pattern-moment-excerpt">"{entry.insight||entry.text.slice(0,140)}{(!entry.insight&&entry.text.length>140)?"...":""}"</div>
+          </div>)}
+        </div>
+      </div>
+    </>;
+  })()}
   {showUpgrade&&(()=>{
     // find monthly and annual packages from RC, fall back to static labels
     const monthly=iapPackages.find(p=>p.packageType==="MONTHLY");
