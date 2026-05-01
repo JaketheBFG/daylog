@@ -349,7 +349,7 @@ async function checkAndIncrementUsage(userId, isPro=false){
   const {data} = await supabase.from("ai_usage").select("count,monthly_count,month").eq("user_id",userId).eq("date",today).single();
   
   const monthlyCount = data?.month===thisMonth ? (data?.monthly_count||0) : 0;
-  const monthlyLimit = isPro ? 40 : 5;
+  const monthlyLimit = isPro ? 200 : 10;
   
   if(monthlyCount >= monthlyLimit) return {allowed:false, reason: isPro ? "monthly_pro" : "monthly_free"};
   
@@ -582,7 +582,7 @@ const [editingText,setEditingText]=useState("");
         observation:`Based on this journal entry, write a single warm observation about what this person is carrying (under 20 words). Start with "You've been" or "Lately" or similar. No quotes.\n\nEntry: ${entryText}`,
         question:`Based on this journal entry, write a single open question to sit with tomorrow (under 20 words). Start with "What would it look like" or "What if" or similar. No quotes.\n\nEntry: ${entryText}`,
       };
-      const text=await callClaudeRaw(prompts[mode]||prompts.intention,60);
+      const text=await callClaudeRaw(prompts[mode]||prompts.intention,60,null,true); // null userId = skip usage counter
       const trimmed=text.trim();
       localStorage.setItem(`tl_oneliner_${tomorrowStr}`,JSON.stringify({text:trimmed,mode}));
       await scheduleMorningNotification(trimmed,morningTime);
@@ -951,29 +951,45 @@ const {error}=await supabase.auth.resetPasswordForEmail(authEmail,{redirectTo:"h
   const addManualGoal=async()=>{ if(!newGoalText.trim()||!session)return; const g={id:"g"+Date.now(),title:newGoalText.trim(),why:"",icon:"✦",source:"mine",user_id:session.user.id}; setGoals(p=>[...p,g]); await supabase.from("goals").insert(g); setNewGoalText(""); setAddingGoal(false); };
 const handleSuggestGoals=async()=>{ setSuggestingGoals(true); try{ const s=await suggestGoals(entries,session.user.id,isPro); setSuggestedGoals(s.map(g=>({...g,id:"sg"+Date.now()+Math.random()}))); }catch(e){console.error("suggestGoals failed:",e);} setSuggestingGoals(false); };  const handleGenerateMonthlySummary=async()=>{ setGeneratingMonthlySummary(true); try{ const d=await generateMonthlySummary(entries,userName,session.user.id,isPro); setMonthlySummary(d.summary); }catch(e){console.error("monthlySummary failed:",e);} setGeneratingMonthlySummary(false); };
 const handleGenerateDigest=async()=>{ setGeneratingDigest(true); try{ const d=await generateWeeklyDigest(entries,userName,session.user.id,isPro); setDigest(d); }catch(e){} setGeneratingDigest(false); };
-  // ── Entry analysis ──
+  // ── Entry helpers ──
+  const saveEntryToDb=async(entryData)=>{
+    const {data}=await supabase.from("entries").insert(entryData).select().single();
+    if(data){
+      const newEntries=[{...data,stressTags:data.stress_tags||[],joyTags:data.joy_tags||[],stressCategories:data.stress_categories||[],joyCategories:data.joy_categories||[]},...entries];
+      setEntries(newEntries);
+      maybeShowRating(newEntries.length);
+      generateTomorrowOneliner(text,onelinerMode);
+      if(newEntries.length===3){
+        try{
+          const {data:referral}=await supabase.from("referrals").select("*").eq("referred_id",session.user.id).is("rewarded_at",null).single();
+          if(referral) await fetch(`${API_BASE}/api/grant-referral`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({referralId:referral.id,referrerId:referral.referrer_id})});
+        }catch(e){}
+      }
+    }
+    return data;
+  };
+
+  const handleSaveOnly=async()=>{
+    if(!text.trim()||!session) return;
+    setLoading(true);
+    try{
+      await saveEntryToDb({date:selectedDate,mood:todayMood,text,todos:[],stress_tags:[],joy_tags:[],stress_categories:[],joy_categories:[],insight:"",user_id:session.user.id});
+      setText(""); setTodayMood(null); setResult(null);
+    }catch(e){}
+    setLoading(false);
+  };
+
   const handleAnalyze=async()=>{
-    if(!text.trim()||!session){ console.log("blocked - text:", text.trim(), "session:", session); return; }
+    if(!text.trim()||!session) return;
     setLoading(true); setResult(null);
     try{
-const parsed=await analyzeEntry(text,subTodos,subLearned,subGratitude,session.user.id,isPro);      setResult(parsed); setTodos(parsed.todos||[]);
-const entry={date:selectedDate,mood:todayMood,text,todos:parsed.todos||[],stress_tags:parsed.stressTags||[],joy_tags:parsed.joyTags||[],stress_categories:parsed.stressCategories||[],joy_categories:parsed.joyCategories||[],insight:parsed.insight||"",user_id:session.user.id};      const {data}=await supabase.from("entries").insert(entry).select().single();
-      if(data){
-        const newEntries=[{...data,stressTags:data.stress_tags||[],joyTags:data.joy_tags||[],stressCategories:data.stress_categories||[],joyCategories:data.joy_categories||[]},...entries];
-        setEntries(newEntries);
-        maybeShowRating(newEntries.length);
-        generateTomorrowOneliner(text,onelinerMode);
-        // Referral reward: trigger on 3rd entry
-        if(newEntries.length===3){
-          try{
-            const {data:referral}=await supabase.from("referrals").select("*").eq("referred_id",session.user.id).is("rewarded_at",null).single();
-            if(referral){
-              await fetch(`${API_BASE}/api/grant-referral`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({referralId:referral.id,referrerId:referral.referrer_id})});
-            }
-          }catch(e){}
-        }
-      }
-    }catch(e){ setResult({error:true}); }
+      const parsed=await analyzeEntry(text,subTodos,subLearned,subGratitude,session.user.id,isPro);
+      setResult(parsed); setTodos(parsed.todos||[]);
+      await saveEntryToDb({date:selectedDate,mood:todayMood,text,todos:parsed.todos||[],stress_tags:parsed.stressTags||[],joy_tags:parsed.joyTags||[],stress_categories:parsed.stressCategories||[],joy_categories:parsed.joyCategories||[],insight:parsed.insight||"",user_id:session.user.id});
+    }catch(e){
+      const isRateLimit=e?.message==="RATE_LIMIT";
+      setResult({error:true,rateLimit:isRateLimit});
+    }
     setLoading(false);
   };
 
@@ -1008,7 +1024,7 @@ const entry={date:selectedDate,mood:todayMood,text,todos:parsed.todos||[],stress
         observation:`Based on this journal entry, write a single warm observation about what this person is carrying (under 20 words). Start with "You've been" or "Lately" or similar. No quotes.\n\nEntry: ${yesterdayEntry.text}`,
         question:`Based on this journal entry, write a single open question to sit with today (under 20 words). Start with "What would it look like" or "What if" or similar. No quotes.\n\nEntry: ${yesterdayEntry.text}`,
       };
-      const text=await callClaudeRaw(prompts[mode]||prompts.intention,60);
+      const text=await callClaudeRaw(prompts[mode]||prompts.intention,60,null,true); // skip usage counter
       setDailyOneliner(text.trim());
       localStorage.setItem(`tl_oneliner_${todayStr}`,JSON.stringify({text:text.trim(),mode}));
     }catch(e){}
@@ -1650,6 +1666,7 @@ const habitDays=isMobile?lastNDays(7):last28Days();
           <span className="char-count">{text.length} characters</span>
           <div className="entry-actions">
             <button className={`btn btn-ghost ${recording?"recording":""}`} onClick={toggleVoice}>{recording&&<span className="rec-dot"/>}{recording?"Stop":"🎙 Speak"}</button>
+            <button className="btn btn-ghost" onClick={()=>{haptic("light");handleSaveOnly();}} disabled={!text.trim()||loading}>Save</button>
             <button className="btn btn-primary" onClick={()=>{haptic("medium");handleAnalyze();}} disabled={!text.trim()||loading}>{loading?"Reflecting...":"Reflect →"}</button>
           </div>
         </div>
@@ -1660,7 +1677,12 @@ const habitDays=isMobile?lastNDays(7):last28Days();
         {(result.stressTags?.length>0||result.joyTags?.length>0)&&<div className="analysis-section"><div className="section-label">Today's signals</div><div className="tags-row">{result.stressTags?.map((t,i)=><span key={i} className="tag tag-stress">↑ {t}</span>)}{result.joyTags?.map((t,i)=><span key={i} className="tag tag-joy">✦ {t}</span>)}</div></div>}
         {result.insight&&<div className="analysis-section"><div className="section-label">Observation</div><div className="insight-box">"{result.insight}"</div></div>}
       </>}
-{result?.error&&<div className="entry-card"><div className="entry-prompt">{result.rateLimit?"You've used all 5 reflections this month":"Couldn't parse that — try again or check your connection."}</div></div>}
+      {result?.error&&<div className="entry-card" style={{textAlign:"center"}}>
+        {result.rateLimit?<>
+          <div className="entry-prompt" style={{marginBottom:12}}>You've used your 10 reflections this month. You can still save entries — they'll be there when your limit resets.</div>
+          {!isPro&&<button onClick={()=>{setShowUpgrade(true);loadIAPPackages();}} style={{padding:"8px 18px",borderRadius:10,background:"var(--amber)",border:"none",color:"#0e0c0a",fontFamily:"DM Sans,sans-serif",fontSize:13,fontWeight:500,cursor:"pointer"}}>Unlock unlimited with Pro ✦</button>}
+        </>:<div className="entry-prompt">Couldn't parse that — try again or check your connection.</div>}
+      </div>}
       <div style={{height:1,background:"var(--border)",margin:"32px 0 24px"}}/>
       <div className="date-header" style={{marginBottom:16}}><div className="date-label">past entries</div><div className="date-main">Your journal</div></div>
       <div style={{marginBottom:16,position:"relative"}}>
@@ -1867,7 +1889,10 @@ const habitDays=isMobile?lastNDays(7):last28Days();
         <div className="pattern-card">
           <h3 style={{marginBottom:4}}>Weekly digest</h3>
           <p style={{marginBottom:16}}>A personal reflection on your week, written from your entries.</p>
-          <button className="digest-gen-btn" onClick={handleGenerateDigest} disabled={generatingDigest||entries.length===0}>{generatingDigest?<><div className="loading-dots" style={{padding:0}}><span/><span/><span/></div> Writing your digest...</>:<><span>✦</span> Generate this week's digest</>}</button>
+          {isPro
+            ?<button className="digest-gen-btn" onClick={handleGenerateDigest} disabled={generatingDigest||entries.length===0}>{generatingDigest?<><div className="loading-dots" style={{padding:0}}><span/><span/><span/></div> Writing your digest...</>:<><span>✦</span> Generate this week's digest</>}</button>
+            :<button className="digest-gen-btn" onClick={()=>{setShowUpgrade(true);loadIAPPackages();}}><span>✦</span> Weekly digest · Pro feature</button>
+          }
           {digest&&<div className="digest-card"><div className="digest-week">Week of {shortDate(weekDates[0])} — {shortDate(weekDates[6])}</div>{digest.headline&&<div className="digest-headline">"{digest.headline}"</div>}{digest.highlight&&<div className="digest-section"><div className="digest-section-label">Highlight</div><div className="digest-body">{digest.highlight}</div></div>}{digest.pattern&&<div className="digest-section"><div className="digest-section-label">Pattern noticed</div><div className="digest-body">{digest.pattern}</div></div>}{digest.nudge&&<div className="digest-section"><div className="digest-section-label">For next week</div><div className="digest-nudge">{digest.nudge}</div></div>}</div>}
         </div>
         <div className="pattern-card">
@@ -1890,7 +1915,12 @@ const habitDays=isMobile?lastNDays(7):last28Days();
         </div>
         <div className="summary-card">
           <div className="summary-month">Monthly summary · {monthYear}</div>
-          {monthlySummary?<div className="summary-text">{monthlySummary}</div>:<><div className="summary-text" style={{marginBottom:12}}>Generate a personal summary of your month based on your real entries.</div><button className="digest-gen-btn" onClick={handleGenerateMonthlySummary} disabled={generatingMonthlySummary||entries.length===0}>{generatingMonthlySummary?<><div className="loading-dots" style={{padding:0}}><span/><span/><span/></div> Writing your summary...</>:<><span>✦</span> Generate monthly summary</>}</button></>}
+          {monthlySummary
+            ?<div className="summary-text">{monthlySummary}</div>
+            :isPro
+              ?<><div className="summary-text" style={{marginBottom:12}}>Generate a personal summary of your month based on your real entries.</div><button className="digest-gen-btn" onClick={handleGenerateMonthlySummary} disabled={generatingMonthlySummary||entries.length===0}>{generatingMonthlySummary?<><div className="loading-dots" style={{padding:0}}><span/><span/><span/></div> Writing your summary...</>:<><span>✦</span> Generate monthly summary</>}</button></>
+              :<button className="digest-gen-btn" onClick={()=>{setShowUpgrade(true);loadIAPPackages();}}><span>✦</span> Monthly summary · Pro feature</button>
+          }
         </div>
       </div>
     </>}
@@ -1939,9 +1969,9 @@ const habitDays=isMobile?lastNDays(7):last28Days();
       <div style={{position:"fixed",top:"50%",left:"50%",transform:"translate(-50%,-50%)",zIndex:201,background:"var(--surface)",border:"1px solid var(--border)",borderRadius:20,padding:"32px 24px",width:"calc(100vw - 48px)",maxWidth:380,textAlign:"center"}}>
         <div style={{fontSize:32,marginBottom:12}}>✦</div>
         <div style={{fontFamily:"Playfair Display,serif",fontSize:24,color:"var(--cream)",marginBottom:8}}>Throughline Pro</div>
-        <p style={{fontSize:14,color:"var(--text-muted)",lineHeight:1.65,marginBottom:24}}>Unlock 30 AI reflections per month, full pattern insights, weekly digests, and more.</p>
+        <p style={{fontSize:14,color:"var(--text-muted)",lineHeight:1.65,marginBottom:24}}>Unlimited AI reflections, full pattern insights, weekly digests, and more.</p>
         <div style={{background:"var(--surface2)",borderRadius:14,padding:"16px",marginBottom:20}}>
-          {[["✦","30 AI reflections/month"],["📈","Full patterns & insights"],["📓","Unlimited entries"],["🗓","Weekly & monthly digests"]].map(([icon,label])=>(
+          {[["✦","Unlimited AI reflections"],["📈","Full patterns & insights"],["📓","Weekly & monthly digests"],["🗓","Priority support"]].map(([icon,label])=>(
             <div key={label} style={{display:"flex",alignItems:"center",gap:10,padding:"6px 0",fontSize:13,color:"var(--text-muted)",textAlign:"left"}}>
               <span>{icon}</span><span>{label}</span>
             </div>
