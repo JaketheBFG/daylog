@@ -207,29 +207,28 @@ const STYLES = `
   .plan-todo-text.done { text-decoration:line-through; color:var(--text-muted); }
   .plan-note { font-size:14px; color:var(--text-muted); line-height:1.7; font-style:italic; padding:14px 16px; background:var(--surface2); border-radius:10px; margin-top:4px; }
   .plan-divider { height:1px; background:var(--border); margin:18px 0; }
-  .plan-todo-schedule-btn { background:none; border:none; cursor:pointer; padding:2px 4px; border-radius:6px; font-size:13px; color:var(--text-dim); transition:color 0.15s,background 0.15s; flex-shrink:0; }
-  .plan-todo-schedule-btn:hover,.plan-todo-schedule-btn.active { color:var(--amber); background:rgba(212,175,55,0.12); }
-  /* ── TIMELINE ── */
-  .timeline-wrap { margin-top:20px; }
-  .timeline-header { font-size:10px; letter-spacing:1.5px; text-transform:uppercase; color:var(--text-dim); font-weight:500; margin-bottom:14px; }
-  .timeline-row { display:flex; align-items:flex-start; gap:0; min-height:44px; cursor:pointer; }
-  .timeline-row:hover .timeline-slot { background:rgba(255,255,255,0.02); border-radius:8px; }
-  .timeline-left { display:flex; flex-direction:column; align-items:center; width:48px; flex-shrink:0; }
-  .timeline-time { font-size:11px; color:var(--text-dim); font-family:'DM Sans',sans-serif; white-space:nowrap; padding-top:10px; width:100%; text-align:right; padding-right:10px; }
-  .timeline-stem { flex:1; width:1px; background:var(--border); min-height:8px; }
-  .timeline-dot { width:6px; height:6px; border-radius:50%; background:var(--border); flex-shrink:0; margin-top:12px; }
-  .timeline-dot.has-event { background:var(--amber); }
-  .timeline-slot { flex:1; padding:6px 8px 6px 10px; min-height:44px; }
-  .timeline-event { display:flex; align-items:center; gap:6px; background:var(--surface2); border:1px solid var(--border); border-radius:8px; padding:6px 10px; margin-bottom:6px; animation:fadeUp 0.2s ease; }
-  .timeline-event.from-todo { border-color:rgba(212,175,55,0.3); background:rgba(212,175,55,0.06); }
-  .timeline-event-text { font-size:13px; color:var(--text); flex:1; line-height:1.4; }
-  .timeline-event-del { background:none; border:none; color:var(--text-dim); cursor:pointer; font-size:14px; padding:0 2px; flex-shrink:0; transition:color 0.15s; }
-  .timeline-event-del:hover { color:var(--rose); }
-  .timeline-add-row { display:flex; gap:6px; margin-top:4px; }
-  .timeline-add-input { flex:1; background:var(--surface); border:1px solid var(--amber); border-radius:8px; padding:7px 10px; color:var(--text); font-family:'DM Sans',sans-serif; font-size:13px; outline:none; }
-  .timeline-add-btn { background:var(--amber); border:none; border-radius:8px; padding:7px 12px; color:#0e0c0a; font-family:'DM Sans',sans-serif; font-size:12px; cursor:pointer; font-weight:500; }
-  .timeline-add-cancel { background:none; border:1px solid var(--border); border-radius:8px; padding:7px 10px; color:var(--text-muted); font-family:'DM Sans',sans-serif; font-size:12px; cursor:pointer; }
-  .timeline-tap-hint { font-size:11px; color:var(--text-dim); font-style:italic; padding-top:12px; }
+  .plan-todo-block-btns { display:flex; gap:4px; flex-shrink:0; }
+  .plan-todo-block-btn { background:none; border:1px solid var(--border); border-radius:6px; padding:2px 7px; font-size:10px; color:var(--text-dim); cursor:pointer; font-family:'DM Sans',sans-serif; transition:all 0.15s; }
+  .plan-todo-block-btn:hover { border-color:var(--amber); color:var(--amber); }
+  .plan-todo-block-btn.assigned { background:rgba(212,175,55,0.12); border-color:rgba(212,175,55,0.4); color:var(--amber); }
+  /* ── DAY BLOCKS ── */
+  .day-blocks-wrap { margin-top:20px; display:flex; flex-direction:column; gap:12px; }
+  .day-block { background:var(--surface); border:1px solid var(--border); border-radius:14px; overflow:hidden; }
+  .day-block-header { display:flex; align-items:center; justify-content:space-between; padding:14px 16px 10px; }
+  .day-block-title { font-size:13px; font-weight:500; color:var(--cream); letter-spacing:0.3px; }
+  .day-block-icon { font-size:15px; opacity:0.7; }
+  .day-block-add-btn { background:none; border:none; color:var(--text-dim); cursor:pointer; font-size:18px; line-height:1; padding:0 2px; transition:color 0.15s; }
+  .day-block-add-btn:hover { color:var(--amber); }
+  .day-block-items { padding:0 16px; }
+  .day-block-item { display:flex; align-items:center; gap:8px; padding:8px 0; border-top:1px solid var(--border); }
+  .day-block-item-text { font-size:13px; color:var(--text-muted); flex:1; line-height:1.4; }
+  .day-block-item-del { background:none; border:none; color:var(--text-dim); cursor:pointer; font-size:14px; padding:0; transition:color 0.15s; }
+  .day-block-item-del:hover { color:var(--rose); }
+  .day-block-item.from-todo .day-block-item-text { color:var(--text); }
+  .day-block-add-row { display:flex; gap:6px; padding:8px 16px 12px; border-top:1px solid var(--border); }
+  .day-block-input { flex:1; background:var(--surface2); border:1px solid var(--amber); border-radius:8px; padding:8px 10px; color:var(--text); font-family:'DM Sans',sans-serif; font-size:13px; outline:none; }
+  .day-block-input-submit { background:var(--amber); border:none; border-radius:8px; padding:8px 12px; color:#0e0c0a; font-family:'DM Sans',sans-serif; font-size:12px; font-weight:500; cursor:pointer; }
+  .day-block-input-cancel { background:none; border:none; color:var(--text-dim); font-size:16px; cursor:pointer; padding:0 4px; }
   /* ── SUBSECTIONS ── */
   .subsection-toggle { display:flex; align-items:center; gap:10px; padding:12px 0; cursor:pointer; border-top:1px solid var(--border); user-select:none; }
   .subsection-toggle:first-of-type { margin-top:8px; }
@@ -431,9 +430,8 @@ const [selectedDate,setSelectedDate]=useState(todayStr);
   const [planRecording,setPlanRecording]=useState(false);
   const planRecognitionRef=useRef(null);
   const [timelineEvents,setTimelineEvents]=useState([]);
-  const [addingEventAtHour,setAddingEventAtHour]=useState(null);
+  const [addingEventAtBlock,setAddingEventAtBlock]=useState(null);
   const [newEventText,setNewEventText]=useState("");
-  const [schedulingTodoIdx,setSchedulingTodoIdx]=useState(null);
 
   // Habits
   const [habits,setHabits]=useState([]);
@@ -807,17 +805,17 @@ const {error}=await supabase.auth.resetPasswordForEmail(authEmail,{redirectTo:"h
     localStorage.setItem(`dayplan_${todayStr}`,JSON.stringify({...parsed,todos:next}));
     return next;
   });
-  const resetPlan=()=>{ setDayPlan(null); setPlanInput(""); setPlanTodos([]); setTimelineEvents([]); setSchedulingTodoIdx(null); setAddingEventAtHour(null); localStorage.removeItem(`dayplan_${todayStr}`); };
+  const resetPlan=()=>{ setDayPlan(null); setPlanInput(""); setPlanTodos([]); setTimelineEvents([]); setAddingEventAtBlock(null); localStorage.removeItem(`dayplan_${todayStr}`); };
   const savePlanToStorage=(plan,todos,tevents)=>{
     localStorage.setItem(`dayplan_${todayStr}`,JSON.stringify({plan,todos,timelineEvents:tevents}));
   };
-  const addTimelineEvent=(hour,text,todoIdx=null)=>{
-    const event={id:Date.now(),hour,text,fromTodo:todoIdx!==null};
+  const addTimelineEvent=(block,text,todoIdx=null)=>{
+    const event={id:Date.now(),block,text,fromTodo:todoIdx!==null};
     const nextEvents=[...timelineEvents,event];
     setTimelineEvents(nextEvents);
     let nextTodos=planTodos;
     if(todoIdx!==null){
-      nextTodos=planTodos.map((t,i)=>i===todoIdx?{...t,scheduledHour:hour}:t);
+      nextTodos=planTodos.map((t,i)=>i===todoIdx?{...t,scheduledBlock:block}:t);
       setPlanTodos(nextTodos);
     }
     savePlanToStorage(dayPlan,nextTodos,nextEvents);
@@ -828,13 +826,12 @@ const {error}=await supabase.auth.resetPasswordForEmail(authEmail,{redirectTo:"h
     setTimelineEvents(nextEvents);
     let nextTodos=planTodos;
     if(removed?.fromTodo){
-      nextTodos=planTodos.map(t=>t.scheduledHour&&timelineEvents.filter(e=>e.id!==id).every(e=>e.text!==t.text)?{...t,scheduledHour:undefined}:t);
+      nextTodos=planTodos.map(t=>t.text===removed.text?{...t,scheduledBlock:undefined}:t);
       setPlanTodos(nextTodos);
     }
     savePlanToStorage(dayPlan,nextTodos,nextEvents);
   };
-  const TIMELINE_HOURS=Array.from({length:17},(_,i)=>i+6); // 6am–10pm
-  const fmtHour=(h)=>h===12?"12 PM":h<12?`${h} AM`:`${h-12} PM`;
+  const DAY_BLOCKS=[{key:"morning",label:"Morning",icon:"🌅"},{key:"afternoon",label:"Afternoon",icon:"☀️"},{key:"evening",label:"Evening",icon:"🌙"}];
 
   // ── Data export ──
   const exportData=async(format)=>{
@@ -1733,14 +1730,14 @@ const habitDays=isMobile?lastNDays(7):last28Days();
           </>}
           {planTodos.length>0&&<>
             <div className="plan-divider"/>
-            <div className="plan-section-label">To-dos {schedulingTodoIdx!==null&&<span style={{color:"var(--amber)",fontStyle:"italic",textTransform:"none",letterSpacing:0,fontSize:11}}> — tap a time slot to schedule</span>}</div>
+            <div className="plan-section-label">To-dos</div>
             <div style={{marginBottom:16}}>
               {planTodos.map((t,i)=><div key={i} className="plan-todo-item">
                 <div className={`todo-check ${t.done?"done":""}`} onClick={()=>{haptic("light");togglePlanTodo(i);}}/>
                 <span className={`plan-todo-text ${t.done?"done":""}`}>{t.text}</span>
-                {t.scheduledHour!=null
-                  ?<span style={{fontSize:11,color:"var(--amber)",flexShrink:0,paddingTop:2}}>{fmtHour(t.scheduledHour)}</span>
-                  :<button className={`plan-todo-schedule-btn ${schedulingTodoIdx===i?"active":""}`} onClick={(e)=>{e.stopPropagation();haptic("light");setSchedulingTodoIdx(i===schedulingTodoIdx?null:i);setAddingEventAtHour(null);}} title="Schedule on timeline">🕐</button>
+                {t.scheduledBlock
+                  ?<span style={{fontSize:10,color:"var(--amber)",flexShrink:0,border:"1px solid rgba(212,175,55,0.4)",borderRadius:6,padding:"2px 7px",textTransform:"capitalize"}}>{t.scheduledBlock}</span>
+                  :<div className="plan-todo-block-btns">{DAY_BLOCKS.map(b=><button key={b.key} className="plan-todo-block-btn" onClick={(e)=>{e.stopPropagation();haptic("light");addTimelineEvent(b.key,t.text,i);}}>{b.label[0]}</button>)}</div>
                 }
               </div>)}
             </div>
@@ -1748,41 +1745,29 @@ const habitDays=isMobile?lastNDays(7):last28Days();
           {dayPlan.note&&<div className="plan-note">{dayPlan.note}</div>}
         </div>
         <button className="btn btn-ghost" style={{marginTop:4}} onClick={resetPlan}>Re-plan →</button>
-        <div className="timeline-wrap">
-          <div className="timeline-header">Your day · {fmtHour(6)} – {fmtHour(22)}</div>
-          {schedulingTodoIdx!==null&&<div style={{fontSize:12,color:"var(--amber)",marginBottom:10,fontStyle:"italic"}}>Tap a time to place "{planTodos[schedulingTodoIdx]?.text?.slice(0,30)}{planTodos[schedulingTodoIdx]?.text?.length>30?"...":""}"</div>}
-          {TIMELINE_HOURS.map(hour=>{
-            const eventsHere=timelineEvents.filter(e=>e.hour===hour);
-            const isAdding=addingEventAtHour===hour;
-            const hasEvent=eventsHere.length>0;
-            return <div key={hour} className="timeline-row" onClick={()=>{
-              if(schedulingTodoIdx!==null){
-                haptic("medium");
-                addTimelineEvent(hour,planTodos[schedulingTodoIdx].text,schedulingTodoIdx);
-                setSchedulingTodoIdx(null);
-                return;
-              }
-              if(!isAdding){ haptic("light"); setAddingEventAtHour(hour); setNewEventText(""); setSchedulingTodoIdx(null); }
-            }}>
-              <div className="timeline-left">
-                <div className="timeline-time">{fmtHour(hour)}</div>
+        <div className="day-blocks-wrap">
+          {DAY_BLOCKS.map(b=>{
+            const items=timelineEvents.filter(e=>e.block===b.key);
+            const isAdding=addingEventAtBlock===b.key;
+            return <div key={b.key} className="day-block">
+              <div className="day-block-header">
+                <div style={{display:"flex",alignItems:"center",gap:8}}>
+                  <span className="day-block-icon">{b.icon}</span>
+                  <span className="day-block-title">{b.label}</span>
+                </div>
+                <button className="day-block-add-btn" onClick={()=>{haptic("light");setAddingEventAtBlock(isAdding?null:b.key);setNewEventText("");}}>+</button>
               </div>
-              <div style={{display:"flex",flexDirection:"column",alignItems:"center",width:12,flexShrink:0}}>
-                <div className={`timeline-dot ${hasEvent||isAdding?"has-event":""}`}/>
-                <div className="timeline-stem"/>
-              </div>
-              <div className="timeline-slot" onClick={e=>e.stopPropagation()}>
-                {eventsHere.map(ev=><div key={ev.id} className={`timeline-event ${ev.fromTodo?"from-todo":""}`}>
-                  <span className="timeline-event-text">{ev.text}</span>
-                  <button className="timeline-event-del" onClick={()=>{haptic("light");removeTimelineEvent(ev.id);}}>×</button>
+              {(items.length>0||isAdding)&&<div className="day-block-items">
+                {items.map(ev=><div key={ev.id} className={`day-block-item ${ev.fromTodo?"from-todo":""}`}>
+                  <span className="day-block-item-text">{ev.text}</span>
+                  <button className="day-block-item-del" onClick={()=>{haptic("light");removeTimelineEvent(ev.id);}}>×</button>
                 </div>)}
-                {isAdding&&<div className="timeline-add-row" onClick={e=>e.stopPropagation()}>
-                  <input autoFocus className="timeline-add-input" value={newEventText} onChange={e=>setNewEventText(e.target.value)} placeholder="Add event..." onKeyDown={e=>{if(e.key==="Enter"&&newEventText.trim()){haptic("medium");addTimelineEvent(hour,newEventText.trim());setAddingEventAtHour(null);setNewEventText("");}if(e.key==="Escape")setAddingEventAtHour(null);}}/>
-                  <button className="timeline-add-btn" onClick={()=>{if(newEventText.trim()){haptic("medium");addTimelineEvent(hour,newEventText.trim());setAddingEventAtHour(null);setNewEventText("");}}} disabled={!newEventText.trim()}>Add</button>
-                  <button className="timeline-add-cancel" onClick={()=>setAddingEventAtHour(null)}>✕</button>
-                </div>}
-                {!isAdding&&!hasEvent&&schedulingTodoIdx===null&&<div className="timeline-tap-hint">tap to add</div>}
-              </div>
+              </div>}
+              {isAdding&&<div className="day-block-add-row">
+                <input autoFocus className="day-block-input" value={newEventText} onChange={e=>setNewEventText(e.target.value)} placeholder={`Add to ${b.label.toLowerCase()}...`} onKeyDown={e=>{if(e.key==="Enter"&&newEventText.trim()){haptic("medium");addTimelineEvent(b.key,newEventText.trim());setAddingEventAtBlock(null);setNewEventText("");}if(e.key==="Escape")setAddingEventAtBlock(null);}}/>
+                <button className="day-block-input-submit" onClick={()=>{if(newEventText.trim()){haptic("medium");addTimelineEvent(b.key,newEventText.trim());setAddingEventAtBlock(null);setNewEventText("");}}} disabled={!newEventText.trim()}>Add</button>
+                <button className="day-block-input-cancel" onClick={()=>setAddingEventAtBlock(null)}>✕</button>
+              </div>}
             </div>;
           })}
         </div>
