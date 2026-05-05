@@ -417,6 +417,23 @@ export default function App() {
   const [obDone, setObDone] = useState(false);
   const [obStep, setObStep] = useState(0);
   const [userName, setUserName] = useState("");
+
+  // Personality helpers
+  const [savedFeedback, setSavedFeedback] = useState(false);
+  const hourNow = new Date().getHours();
+  const timeGreeting = hourNow < 12 ? "Good morning" : hourNow < 17 ? "Good afternoon" : "Good evening";
+  const JOURNAL_PROMPTS = [
+    "What's still on your mind from today?",
+    "What surprised you? What drained you? What gave you energy?",
+    "Talk through your day — the good, the hard, the in-between.",
+    "What are you carrying right now?",
+    "What happened today that's worth remembering?",
+    "What do you wish went differently? What went better than expected?",
+    "How are you actually doing?",
+    "What's one thing you noticed today — about yourself or the world?",
+  ];
+  const todayPromptIdx = new Date().getDate() % JOURNAL_PROMPTS.length;
+  const journalPrompt = preferredTime === "morning" ? "What are you carrying into today?" : JOURNAL_PROMPTS[todayPromptIdx];
   const [preferredTime, setPreferredTime] = useState("");
 
   // Core
@@ -975,6 +992,7 @@ const handleGenerateDigest=async()=>{ setGeneratingDigest(true); try{ const d=aw
     try{
       await saveEntryToDb({date:selectedDate,mood:todayMood,text,todos:[],stress_tags:[],joy_tags:[],stress_categories:[],joy_categories:[],insight:"",user_id:session.user.id});
       setText(""); setTodayMood(null); setResult(null);
+      setSavedFeedback(true); setTimeout(()=>setSavedFeedback(false),2500);
     }catch(e){}
     setLoading(false);
   };
@@ -1195,7 +1213,7 @@ const habitDays=isMobile?lastNDays(7):last28Days();
         <button className="btn btn-ghost" style={{padding:"6px 14px",fontSize:12}} onClick={()=>{setAddingHabit(v=>!v);setExpandedHabit(null);}}>{addingHabit?"Cancel":"+ Add habit"}</button>
       </div>
 
-      {habits.length===0&&!addingHabit&&<div className="empty-state" style={{padding:"20px 0"}}>No habits yet — add one above.</div>}
+      {habits.length===0&&!addingHabit&&<div className="empty-state" style={{padding:"20px 0"}}>Small things done consistently change everything.</div>}
 
       {habits.map(h=>{
         const isExpanded=expandedHabit===h.id;
@@ -1343,7 +1361,7 @@ const habitDays=isMobile?lastNDays(7):last28Days();
         </div>
       </div>}
 
-      {allGoals.length===0&&<div className="empty-state" style={{padding:"20px 0"}}>No goals yet — add one or let the app suggest some.</div>}
+      {allGoals.length===0&&<div className="empty-state" style={{padding:"20px 0"}}>What do you want more of in your life? Add a goal or let Throughline suggest some.</div>}
 
       {allGoals.map(g=>{
         if(g._suggested) return(
@@ -1488,7 +1506,7 @@ const habitDays=isMobile?lastNDays(7):last28Days();
       <div className="nav-right">
         <div style={{position:"relative"}}>
         <div style={{display:"flex",justifyContent:"flex-end",alignItems:"center",width:"100%",marginBottom:6}}>
-          {userName&&<div className="nav-greeting" style={{flex:1}}>Hey, {userName.split(" ")[0]}</div>}
+          {userName&&<div className="nav-greeting" style={{flex:1}}>{timeGreeting}, {userName.split(" ")[0]}</div>}
         </div>
         <div style={{display:"flex",justifyContent:"flex-end",marginBottom:6}}>
           <button className="signout-btn" onClick={()=>setShowSettings(p=>!p)}>⚙️ Settings {showSettings?"▲":"▼"}</button>
@@ -1570,7 +1588,7 @@ const habitDays=isMobile?lastNDays(7):last28Days();
       <div style={{display:"flex",alignItems:"flex-end",justifyContent:"space-between",marginBottom:28}}>
         <div>
           <div className="date-label">{today}</div>
-          <div className="date-main">{userName?`Hey, ${userName.split(" ")[0]}`:"Welcome back"}</div>
+          <div className="date-main">{userName?`${timeGreeting}, ${userName.split(" ")[0]}`:"Welcome back"}</div>
         </div>
         <div style={{display:"flex",gap:8,alignItems:"center",marginBottom:4}}>
           {streak>0&&<div style={{display:"flex",flexDirection:"column",alignItems:"center",background:"var(--surface)",border:"1px solid var(--border)",borderRadius:10,padding:"6px 10px"}}>
@@ -1592,18 +1610,18 @@ const habitDays=isMobile?lastNDays(7):last28Days();
         {!onelinerLoading&&!dailyOneliner&&<div style={{fontSize:13,color:"var(--amber-soft)",fontStyle:"italic",opacity:0.7}}>Journal today for an intention tomorrow...</div>}
       </div>
       <div className="entry-card">
-        <div className="entry-prompt">Ask anything — your journal entries give the answer context.</div>
+        <div className="entry-prompt">Ask anything. Your entries give the answer context — this knows you.</div>
         <textarea className="entry-textarea" placeholder="What should I focus on this week? How have I been doing with stress lately?" value={adviceQuestion} onChange={e=>setAdviceQuestion(e.target.value)} rows={3}/>
         <div className="entry-footer">
           <span className="char-count">{adviceQuestion.length} characters</span>
           <div className="entry-actions">
             <button className={`btn btn-ghost ${adviceRecording?"recording":""}`} onClick={toggleAdviceVoice}>{adviceRecording&&<span className="rec-dot"/>}{adviceRecording?"Stop":"🎙 Speak"}</button>
-            <button className="btn btn-primary" onClick={handleAskAdvice} disabled={!adviceQuestion.trim()||adviceLoading}>{adviceLoading?"Thinking...":"Ask →"}</button>
+            <button className="btn btn-primary" onClick={handleAskAdvice} disabled={!adviceQuestion.trim()||adviceLoading}>{adviceLoading?"Sitting with that...":"Ask →"}</button>
           </div>
         </div>
       </div>
       {adviceLoading&&<div className="entry-card"><div className="entry-prompt">Thinking through your entries...</div><div className="loading-dots"><span/><span/><span/></div></div>}
-      {adviceAnswer&&<div className="analysis-section"><div className="section-label">Response</div><div className="insight-box">{adviceAnswer}</div></div>}
+      {adviceAnswer&&<div className="analysis-section"><div className="section-label">Throughline says</div><div className="insight-box">{adviceAnswer}</div></div>}
       {adviceHistory.length>0&&<>
         <div className="section-label" style={{marginBottom:12,marginTop:24}}>Past questions</div>
         {adviceHistory.slice(0,5).map(a=>{
@@ -1652,7 +1670,7 @@ const habitDays=isMobile?lastNDays(7):last28Days();
         </div>
       </div>
       <div className="entry-card">
-        <div className="entry-prompt">{preferredTime==="morning"?"What are you carrying into today?":"How was your day? Speak or write freely — no structure needed."}</div>
+        <div className="entry-prompt">{journalPrompt}</div>
 {entries.length===0&&!text&&<div style={{background:"var(--surface)",border:"1px solid var(--border)",borderRadius:16,padding:"24px",marginBottom:16,textAlign:"center"}}>
           <div style={{fontSize:28,marginBottom:12}}>✦</div>
           <div style={{fontFamily:"Playfair Display,serif",fontSize:18,color:"var(--cream)",marginBottom:8}}>Welcome to Throughline</div>
@@ -1671,11 +1689,12 @@ const habitDays=isMobile?lastNDays(7):last28Days();
           </div>
         </div>
       </div>
-      {loading&&<div className="entry-card"><div className="entry-prompt">Reading your day...</div><div className="loading-dots"><span/><span/><span/></div></div>}
+      {savedFeedback&&<div className="entry-card" style={{textAlign:"center",padding:"16px"}}><div style={{fontSize:13,color:"var(--amber-soft)",fontStyle:"italic"}}>✦ Saved. Your words are safe here.</div></div>}
+      {loading&&<div className="entry-card"><div className="entry-prompt">Finding the thread in your day...</div><div className="loading-dots"><span/><span/><span/></div></div>}
       {result&&!result.error&&<>
-        {todos.length>0&&<div className="analysis-section"><div className="section-label">Tomorrow's to-dos</div><div className="todo-list">{todos.map((t,i)=><div key={i} className="todo-item" style={{display:"flex",alignItems:"center",gap:8}}><div className={`todo-check ${checkedTodos[i]?"done":""}`} onClick={()=>setCheckedTodos(p=>({...p,[i]:!p[i]}))}/><span className={`todo-text ${checkedTodos[i]?"done":""}`} style={{flex:1}}>{t}</span></div>)}</div></div>}
+        {todos.length>0&&<div className="analysis-section"><div className="section-label">Before tomorrow</div><div className="todo-list">{todos.map((t,i)=><div key={i} className="todo-item" style={{display:"flex",alignItems:"center",gap:8}}><div className={`todo-check ${checkedTodos[i]?"done":""}`} onClick={()=>setCheckedTodos(p=>({...p,[i]:!p[i]}))}/><span className={`todo-text ${checkedTodos[i]?"done":""}`} style={{flex:1}}>{t}</span></div>)}</div></div>}
         {(result.stressTags?.length>0||result.joyTags?.length>0)&&<div className="analysis-section"><div className="section-label">Today's signals</div><div className="tags-row">{result.stressTags?.map((t,i)=><span key={i} className="tag tag-stress">↑ {t}</span>)}{result.joyTags?.map((t,i)=><span key={i} className="tag tag-joy">✦ {t}</span>)}</div></div>}
-        {result.insight&&<div className="analysis-section"><div className="section-label">Observation</div><div className="insight-box">"{result.insight}"</div></div>}
+        {result.insight&&<div className="analysis-section"><div className="section-label">Throughline noticed</div><div className="insight-box">"{result.insight}"</div></div>}
       </>}
       {result?.error&&<div className="entry-card" style={{textAlign:"center"}}>
         {result.rateLimit?<>
@@ -1691,7 +1710,7 @@ const habitDays=isMobile?lastNDays(7):last28Days();
         {searchQuery&&<button onClick={()=>setSearchQuery("")} style={{position:"absolute",right:12,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",color:"var(--text-dim)",cursor:"pointer",fontSize:16}}>✕</button>}
       </div>
       {dbLoading&&<div className="empty-state">Loading your entries...</div>}
-      {!dbLoading&&entries.length===0&&<div className="empty-state">No entries yet — write your first reflection above.</div>}
+      {!dbLoading&&entries.length===0&&<div className="empty-state">Your story starts here. Write your first entry above.</div>}
       {(()=>{
         const allItems=[
           ...entries.map(e=>({...e,_type:"entry"})),
@@ -1775,7 +1794,7 @@ const habitDays=isMobile?lastNDays(7):last28Days();
             </div>
           </div>
         </div>
-        {planLoading&&<div className="entry-card"><div className="entry-prompt">Building your plan...</div><div className="loading-dots"><span/><span/><span/></div></div>}
+        {planLoading&&<div className="entry-card"><div className="entry-prompt">Laying out your day...</div><div className="loading-dots"><span/><span/><span/></div></div>}
       </>}
       {dayPlan&&<>
         <div className="plan-card">
@@ -1908,10 +1927,10 @@ const habitDays=isMobile?lastNDays(7):last28Days();
           </div>
           <p style={{marginBottom:14,fontSize:12,color:"var(--text-dim)",fontStyle:"italic"}}>{periodLabel}</p>
           <div style={{fontSize:10,letterSpacing:"1.5px",textTransform:"uppercase",color:"var(--text-dim)",fontWeight:500,marginBottom:10}}>Friction points</div>
-          {STRESS_PATTERNS.length===0?<div style={{fontSize:13,color:"var(--text-dim)",fontStyle:"italic",marginBottom:16}}>No patterns yet — keep journaling.</div>:<div className="bar-chart" style={{marginBottom:20}}>{STRESS_PATTERNS.map(p=><div key={p.label} className="bar-row" onClick={()=>{haptic("light");setExpandedPattern({type:"stress",label:p.label});}}><div className="bar-label">{p.label}</div><div className="bar-track"><div className="bar-fill stress" style={{width:`${p.pct}%`}}/></div><div className="bar-pct">{p.count}x</div></div>)}</div>}
+          {STRESS_PATTERNS.length===0?<div style={{fontSize:13,color:"var(--text-dim)",fontStyle:"italic",marginBottom:16}}>Patterns emerge over time. Keep writing.</div>:<div className="bar-chart" style={{marginBottom:20}}>{STRESS_PATTERNS.map(p=><div key={p.label} className="bar-row" onClick={()=>{haptic("light");setExpandedPattern({type:"stress",label:p.label});}}><div className="bar-label">{p.label}</div><div className="bar-track"><div className="bar-fill stress" style={{width:`${p.pct}%`}}/></div><div className="bar-pct">{p.count}x</div></div>)}</div>}
           <div style={{height:1,background:"var(--border)",margin:"4px 0 14px"}}/>
           <div style={{fontSize:10,letterSpacing:"1.5px",textTransform:"uppercase",color:"var(--text-dim)",fontWeight:500,marginBottom:10}}>What lights you up</div>
-          {JOY_PATTERNS.length===0?<div style={{fontSize:13,color:"var(--text-dim)",fontStyle:"italic"}}>No patterns yet — keep journaling.</div>:<div className="bar-chart">{JOY_PATTERNS.map(p=><div key={p.label} className="bar-row" onClick={()=>{haptic("light");setExpandedPattern({type:"joy",label:p.label});}}><div className="bar-label">{p.label}</div><div className="bar-track"><div className="bar-fill joy" style={{width:`${p.pct}%`}}/></div><div className="bar-pct">{p.count}x</div></div>)}</div>}
+          {JOY_PATTERNS.length===0?<div style={{fontSize:13,color:"var(--text-dim)",fontStyle:"italic"}}>Your bright spots are in here somewhere. Keep writing.</div>:<div className="bar-chart">{JOY_PATTERNS.map(p=><div key={p.label} className="bar-row" onClick={()=>{haptic("light");setExpandedPattern({type:"joy",label:p.label});}}><div className="bar-label">{p.label}</div><div className="bar-track"><div className="bar-fill joy" style={{width:`${p.pct}%`}}/></div><div className="bar-pct">{p.count}x</div></div>)}</div>}
         </div>
         <div className="summary-card">
           <div className="summary-month">Monthly summary · {monthYear}</div>
