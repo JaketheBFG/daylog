@@ -47,8 +47,6 @@
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<false/>
-	<key>NSUserTrackingUsageDescription</key>
-	<string>This helps us understand how you found Throughline so we can improve the app.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Throughline uses your microphone to transcribe voice entries and plan your day by speaking.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
