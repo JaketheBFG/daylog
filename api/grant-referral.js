@@ -13,6 +13,21 @@ export default async function handler(req, res) {
   }
 
   try {
+    // Verify the referral exists, is unrewarded, and referrerId matches — prevents spoofed calls
+    const verifyRes = await fetch(
+      `${SUPABASE_URL}/rest/v1/referrals?id=eq.${referralId}&referrer_id=eq.${encodeURIComponent(referrerId)}&rewarded_at=is.null&select=id`,
+      {
+        headers: {
+          apikey: SUPABASE_SERVICE_KEY,
+          Authorization: `Bearer ${SUPABASE_SERVICE_KEY}`,
+        },
+      }
+    );
+    const rows = await verifyRes.json();
+    if (!Array.isArray(rows) || rows.length === 0) {
+      return res.status(400).json({ error: "Referral not found or already rewarded" });
+    }
+
     // Grant 30-day promotional entitlement to referrer via RevenueCat REST API
     const rcRes = await fetch(
       `https://api.revenuecat.com/v1/subscribers/${encodeURIComponent(referrerId)}/entitlements/pro/promotional`,
