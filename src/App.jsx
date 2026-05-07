@@ -1519,6 +1519,10 @@ const habitDays=isMobile?lastNDays(7):last28Days();
               <input value={userName} onChange={e=>setUserName(e.target.value)} onBlur={async()=>{ await supabase.auth.updateUser({data:{name:userName}}); haptic("light"); }} placeholder="Your name" style={{flex:1,background:"var(--surface)",border:"1px solid var(--border)",borderRadius:8,padding:"6px 10px",color:"var(--text)",fontFamily:"DM Sans,sans-serif",fontSize:14,outline:"none"}}/>
             </div>
             <div style={{fontSize:14,color:"var(--text-muted)"}}>{session?.user?.email}</div>
+            <div style={{display:"flex",alignItems:"center",gap:6}}>
+              <div style={{fontSize:11,color:"var(--text-dim)",fontFamily:"monospace",flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{session?.user?.id}</div>
+              <button onClick={async()=>{ await navigator.clipboard.writeText(session?.user?.id||""); haptic("light"); }} style={{background:"none",border:"1px solid var(--border)",borderRadius:6,padding:"3px 8px",color:"var(--text-dim)",fontFamily:"DM Sans,sans-serif",fontSize:11,cursor:"pointer",flexShrink:0}}>Copy ID</button>
+            </div>
             <div style={{height:"1px",background:"var(--border)",margin:"4px 0"}}/>
             <a href="https://www.gethroughline.com/privacy-policy" target="_blank" rel="noreferrer" style={{fontSize:13,color:"var(--text-muted)",textDecoration:"none"}}>Privacy policy</a>
             <a href="https://www.gethroughline.com/terms-of-service" target="_blank" rel="noreferrer" style={{fontSize:13,color:"var(--text-muted)",textDecoration:"none"}}>Terms of service</a>
